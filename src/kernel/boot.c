@@ -752,7 +752,7 @@ create_domain_cap(void)
 {
     /* Should never fail. */
     word_t i;
-    cte_t domain_slot;
+    cte_t domain;
 
     /* Check domain scheduler assumptions. */
     assert(ksDomScheduleLength > 0);
@@ -761,28 +761,28 @@ create_domain_cap(void)
         assert(ksDomSchedule[i].length > 0);
     }
 
-    domain_slot.cap = cap_domain_cap_new();
-    domain_slot.cteMDBNode = nullMDBNode;
-    mdb_node_ptr_set_mdbRevocable(&domain_slot.cteMDBNode, true);
-    mdb_node_ptr_set_mdbFirstBadged(&domain_slot.cteMDBNode, true);
+    domain.cap = cap_domain_cap_new();
+    domain.cteMDBNode = nullMDBNode;
+    mdb_node_ptr_set_mdbRevocable(&domain.cteMDBNode, true);
+    mdb_node_ptr_set_mdbFirstBadged(&domain.cteMDBNode, true);
 
-    provide_cslot_to_root_cnode(&domain_slot, seL4_CapDomain);
+    provide_cslot_to_root_cnode(&domain, seL4_CapDomain);
 }
 
 BOOT_CODE bool_t
 create_irq_cnode(void)
 {
-    cte_t cslot;
+    cte_t irq_cnode;
     bool_t status;
     pptr_t pptr;
 
-    init_empty_cslot(&cslot);
-    status = alloc_kernel_object(&cslot, seL4_CapTableObject, IRQ_CNODE_BITS);
+    init_empty_cslot(&irq_cnode);
+    status = alloc_kernel_object(&irq_cnode, seL4_CapTableObject, IRQ_CNODE_BITS);
     if (!status) {
         return false;
     }
 
-    pptr = pptr_of_cap(cslot.cap);
+    pptr = pptr_of_cap(irq_cnode.cap);
     intStateIRQNode = (cte_t *) pptr;
 
     return true;
