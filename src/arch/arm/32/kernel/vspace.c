@@ -594,6 +594,40 @@ create_mapped_it_frame_cap(cap_t pd_cap, pptr_t pptr, vptr_t vptr, asid_t asid, 
     return cap;
 }
 
+BOOT_CODE bool_t
+create_it_frame(cte_t *cslot)
+{
+    bool_t status;
+
+    init_empty_cslot(cslot);
+
+    status = alloc_kernel_object(cslot, seL4_ARM_SmallPageObject, PAGE_BITS);
+    if (!status) {
+        return false;
+    }
+
+    return true;
+}
+
+BOOT_CODE void
+map_it_frame(cte_t *frame, vptr_t vptr)
+{
+    cte_t *pd;
+
+    /* Checking that it is a frame cap and has not been mapped before. */
+    assert(ensureEmptySlot(frame) != EXCEPTION_NONE);
+    assert(cap_get_capType(frame->cap) == cap_small_frame_cap);
+    assert(cap_small_frame_cap_get_capFMappedASID(frame->cap) == asidInvalid);
+
+    pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
+    assert(ensureEmptySlot(pd) != EXCEPTION_NONE);
+
+    cap_small_frame_cap_ptr_set_capFMappedAddress(&frame->cap, vptr);
+    frame->cap = cap_small_frame_cap_set_capFMappedASID(frame->cap, IT_ASID);
+
+    map_it_frame_cap(pd->cap, frame->cap, false);
+}
+
 #ifndef CONFIG_ARM_HYPERVISOR_SUPPORT
 
 BOOT_CODE void

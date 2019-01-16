@@ -20,6 +20,9 @@
 #define IT_ASID 1 /* initial thread's ASID */
 
 bool_t create_it_address_space(v_region_t it_v_reg);
+bool_t create_it_frame(cte_t *cslot);
+void map_it_frame(cte_t *frame, vptr_t vptr);
+
 bool_t create_device_frames(cap_t root_cnode_cap);
 cap_t create_unmapped_it_frame_cap(pptr_t pptr, bool_t use_large);
 cap_t create_mapped_it_frame_cap(cap_t pd_cap, pptr_t pptr, vptr_t vptr, asid_t asid, bool_t use_large, bool_t executable);

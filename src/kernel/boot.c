@@ -150,21 +150,6 @@ create_ipcbuf_frame(cap_t root_cnode_cap, cap_t pd_cap, vptr_t vptr)
     return cap;
 }
 
-BOOT_CODE void
-create_bi_frame_cap(
-    cap_t      root_cnode_cap,
-    cap_t      pd_cap,
-    pptr_t     pptr,
-    vptr_t     vptr
-)
-{
-    cap_t cap;
-
-    /* create a cap of it and write it into the root CNode */
-    cap = create_mapped_it_frame_cap(pd_cap, pptr, vptr, IT_ASID, false, false);
-    write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapBootInfoFrame), cap);
-}
-
 BOOT_CODE region_t
 allocate_extra_bi_region(word_t extra_size)
 {
@@ -188,40 +173,6 @@ allocate_extra_bi_region(word_t extra_size)
     return (region_t) {
         pptr, pptr + BIT(size_bits)
     };
-}
-
-BOOT_CODE pptr_t
-allocate_bi_frame(
-    node_id_t  node_id,
-    word_t   num_nodes,
-    vptr_t ipcbuf_vptr
-)
-{
-    pptr_t pptr;
-
-    /* create the bootinfo frame object */
-    pptr = alloc_region(BI_FRAME_SIZE_BITS);
-    if (!pptr) {
-        printf("Kernel init failed: could not allocate bootinfo frame\n");
-        return 0;
-    }
-    clearMemory((void*)pptr, BI_FRAME_SIZE_BITS);
-
-    /* initialise bootinfo-related global state */
-    ndks_boot.bi_frame = BI_PTR(pptr);
-    ndks_boot.slot_pos_cur = seL4_NumInitialCaps;
-
-    BI_PTR(pptr)->nodeID = node_id;
-    BI_PTR(pptr)->numNodes = num_nodes;
-    BI_PTR(pptr)->numIOPTLevels = 0;
-    BI_PTR(pptr)->ipcBuffer = (seL4_IPCBuffer *) ipcbuf_vptr;
-    BI_PTR(pptr)->initThreadCNodeSizeBits = CONFIG_ROOT_CNODE_SIZE_BITS;
-    BI_PTR(pptr)->initThreadDomain = ksDomSchedule[ksDomScheduleIdx].domain;
-    BI_PTR(pptr)->extraLen = 0;
-    BI_PTR(pptr)->extraBIPages.start = 0;
-    BI_PTR(pptr)->extraBIPages.end = 0;
-
-    return pptr;
 }
 
 BOOT_CODE bool_t
@@ -811,5 +762,40 @@ create_it_asid_pool(void)
     mdb_node_ptr_set_mdbFirstBadged(&asid_control.cteMDBNode, true);
 
     provide_cslot_to_root_cnode(&asid_control, seL4_CapASIDControl);
+    return true;
+}
+
+BOOT_CODE bool_t
+allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
+        vptr_t ipcbuf_vptr)
+{
+    bool_t status;
+    cte_t frame;
+
+    seL4_BootInfo *bi_frame;
+
+    status = create_it_frame(&frame);
+    if (!status) {
+        return false;
+    }
+
+    map_it_frame(&frame, vptr);
+
+    ndks_boot.bi_frame = BI_PTR(pptr_of_cap(frame.cap));
+
+    provide_cslot_to_root_cnode(&frame, ndks_boot.next_root_cnode_slot);
+    ndks_boot.next_root_cnode_slot++;
+
+    bi_frame = ndks_boot.bi_frame;
+    bi_frame->nodeID = node_id;
+    bi_frame->numNodes = num_nodes;
+    bi_frame->numIOPTLevels = 0;
+    bi_frame->ipcBuffer = (seL4_IPCBuffer *) ipcbuf_vptr;
+    bi_frame->initThreadCNodeSizeBits = CONFIG_ROOT_CNODE_SIZE_BITS;
+    bi_frame->initThreadDomain = ksDomSchedule[ksDomScheduleIdx].domain;
+    bi_frame->extraLen = 0;
+    bi_frame->extraBIPages.start = 0;
+    bi_frame->extraBIPages.end = 0;
+
     return true;
 }

@@ -349,7 +349,6 @@ try_init_kernel(
     region_t ui_reg = paddr_to_pptr_reg((p_region_t) {
         ui_p_reg_start, ui_p_reg_end
     });
-    pptr_t bi_frame_pptr;
     vptr_t bi_frame_vptr;
     vptr_t ipcbuf_vptr;
     create_frames_of_region_ret_t create_frames_ret;
@@ -425,8 +424,8 @@ try_init_kernel(
     write_it_asid_pool();
 
     /* create the bootinfo frame */
-    bi_frame_pptr = allocate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr);
-    if (!bi_frame_pptr) {
+    if (!allocate_bi_frame(bi_frame_vptr, 0, CONFIG_MAX_NUM_NODES,
+            ipcbuf_vptr)) {
         return false;
     }
 
@@ -440,13 +439,8 @@ try_init_kernel(
         ndks_boot.bi_frame->ioSpaceCaps = S_REG_EMPTY;
     }
 
-    /* Create and map bootinfo frame cap */
-    create_bi_frame_cap(
-        root_cnode_cap,
-        it_pd_cap,
-        bi_frame_pptr,
-        bi_frame_vptr
-    );
+    /* temporary to ensure things build and run */
+    it_pd_cap = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace)->cap;
 
     /* create the initial thread's IPC buffer */
     ipcbuf_cap = create_ipcbuf_frame(root_cnode_cap, it_pd_cap, ipcbuf_vptr);

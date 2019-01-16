@@ -74,6 +74,8 @@ void create_domain_cap(void);
 bool_t create_irq_cnode(void);
 cte_t *get_cslot_from_root_cnode(word_t offset);
 bool_t create_it_asid_pool(void);
+bool_t allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
+        vptr_t ipcbuf_vptr);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
@@ -86,9 +88,6 @@ void bi_finalise(void);
 cap_t create_ipcbuf_frame(cap_t root_cnode_cap, cap_t pd_cap, vptr_t vptr);
 
 region_t allocate_extra_bi_region(word_t extra_size);
-pptr_t allocate_bi_frame(node_id_t node_id, word_t num_nodes, vptr_t ipcbuf_vptr);
-
-void create_bi_frame_cap(cap_t root_cnode_cap, cap_t pd_cap, pptr_t pptr, vptr_t vptr);
 
 typedef struct create_frames_of_region_ret {
     seL4_SlotRegion region;
