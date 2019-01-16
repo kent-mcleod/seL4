@@ -129,22 +129,6 @@ write_slot(slot_ptr_t slot_ptr, cap_t cap)
     mdb_node_ptr_set_mdbFirstBadged(&slot_ptr->cteMDBNode, true);
 }
 
-BOOT_CODE bool_t
-create_irq_cnode(void)
-{
-    pptr_t pptr;
-    assert(BIT(IRQ_CNODE_BITS - seL4_SlotBits) > maxIRQ);
-    /* create an empty IRQ CNode */
-    pptr = alloc_region(IRQ_CNODE_BITS);
-    if (!pptr) {
-        printf("Kernel init failing: could not create irq cnode\n");
-        return false;
-    }
-    memzero((void*)pptr, 1 << IRQ_CNODE_BITS);
-    intStateIRQNode = (cte_t*)pptr;
-    return true;
-}
-
 BOOT_CODE cap_t
 create_ipcbuf_frame(cap_t root_cnode_cap, cap_t pd_cap, vptr_t vptr)
 {
@@ -783,4 +767,23 @@ create_domain_cap(void)
     mdb_node_ptr_set_mdbFirstBadged(&domain_slot.cteMDBNode, true);
 
     provide_cslot_to_root_cnode(&domain_slot, seL4_CapDomain);
+}
+
+BOOT_CODE bool_t
+create_irq_cnode(void)
+{
+    cte_t cslot;
+    bool_t status;
+    pptr_t pptr;
+
+    init_empty_cslot(&cslot);
+    status = alloc_kernel_object(&cslot, seL4_CapTableObject, IRQ_CNODE_BITS);
+    if (!status) {
+        return false;
+    }
+
+    pptr = pptr_of_cap(cslot.cap);
+    intStateIRQNode = (cte_t *) pptr;
+
+    return true;
 }

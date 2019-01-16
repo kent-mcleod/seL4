@@ -71,6 +71,7 @@ bool_t alloc_kernel_object(cte_t *dest, object_t type, word_t user_size_bits);
 bool_t create_root_cnode(void);
 void provide_cslot_to_root_cnode(cte_t *src, word_t offset);
 void create_domain_cap(void);
+bool_t create_irq_cnode(void);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
@@ -80,7 +81,6 @@ cap_t create_it_asid_pool(cap_t root_cnode_cap);
 void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
 bool_t create_idle_thread(void);
 void bi_finalise(void);
-bool_t create_irq_cnode(void);
 
 cap_t create_ipcbuf_frame(cap_t root_cnode_cap, cap_t pd_cap, vptr_t vptr);
 
