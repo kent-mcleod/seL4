@@ -73,12 +73,12 @@ void provide_cslot_to_root_cnode(cte_t *src, word_t offset);
 void create_domain_cap(void);
 bool_t create_irq_cnode(void);
 cte_t *get_cslot_from_root_cnode(word_t offset);
+bool_t create_it_asid_pool(void);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
 void write_slot(slot_ptr_t slot_ptr, cap_t cap);
 bool_t provide_cap(cap_t root_cnode_cap, cap_t cap);
-cap_t create_it_asid_pool(cap_t root_cnode_cap);
 void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
 bool_t create_idle_thread(void);
 void bi_finalise(void);

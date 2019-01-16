@@ -271,31 +271,6 @@ create_frames_of_region(
     };
 }
 
-BOOT_CODE cap_t
-create_it_asid_pool(cap_t root_cnode_cap)
-{
-    pptr_t ap_pptr;
-    cap_t  ap_cap;
-
-    /* create ASID pool */
-    ap_pptr = alloc_region(seL4_ASIDPoolBits);
-    if (!ap_pptr) {
-        printf("Kernel init failed: failed to create initial thread asid pool\n");
-        return cap_null_cap_new();
-    }
-    memzero(ASID_POOL_PTR(ap_pptr), 1 << seL4_ASIDPoolBits);
-    ap_cap = cap_asid_pool_cap_new(IT_ASID >> asidLowBits, ap_pptr);
-    write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadASIDPool), ap_cap);
-
-    /* create ASID control cap */
-    write_slot(
-        SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapASIDControl),
-        cap_asid_control_cap_new()
-    );
-
-    return ap_cap;
-}
-
 BOOT_CODE bool_t
 create_idle_thread(void)
 {
@@ -797,4 +772,44 @@ get_cslot_from_root_cnode(word_t offset)
 
     pptr = pptr_of_cap(ndks_boot.root_cnode.cap);
     return SLOT_PTR(pptr, offset);
+}
+
+BOOT_CODE bool_t
+create_it_asid_pool(void)
+{
+    bool_t status;
+
+    cte_t *ut;
+    cte_t asid_pool;
+    cte_t asid_control;
+
+    pptr_t pptr;
+
+    ut = alloc_untyped_slot();
+    if (ut == NULL) {
+        return false;
+    }
+
+    status = alloc_kernel_object(ut, seL4_UntypedObject, seL4_ASIDPoolBits);
+    if (!status) {
+        return false;
+    }
+
+    /* Performing manual untyped retype.
+     * This is done manually because invokeUntyped_Retype cannot retype into
+     * an asid pool. */
+    init_empty_cslot(&asid_pool);
+    pptr = pptr_of_cap(ut->cap);
+
+    cteInsert(cap_asid_pool_cap_new(IT_ASID >> asidLowBits, WORD_REF(pptr)),
+            ut, &asid_pool);
+    provide_cslot_to_root_cnode(&asid_pool, seL4_CapInitThreadASIDPool);
+
+    asid_control.cap = cap_asid_control_cap_new();
+    asid_control.cteMDBNode = nullMDBNode;
+    mdb_node_ptr_set_mdbRevocable(&asid_control.cteMDBNode, true);
+    mdb_node_ptr_set_mdbFirstBadged(&asid_control.cteMDBNode, true);
+
+    provide_cslot_to_root_cnode(&asid_control, seL4_CapASIDControl);
+    return true;
 }

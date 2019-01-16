@@ -645,10 +645,14 @@ activate_global_pd(void)
 #endif /* CONFIG_ARM_HYPERVISOR_SUPPORT */
 
 BOOT_CODE void
-write_it_asid_pool(cap_t it_ap_cap, cap_t it_pd_cap)
+write_it_asid_pool(void)
 {
-    asid_pool_t* ap = ASID_POOL_PTR(pptr_of_cap(it_ap_cap));
-    ap->array[IT_ASID] = PDE_PTR(pptr_of_cap(it_pd_cap));
+    cte_t *it_ap, *it_pd;
+    it_ap = get_cslot_from_root_cnode(seL4_CapInitThreadASIDPool);
+    it_pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
+
+    asid_pool_t* ap = ASID_POOL_PTR(pptr_of_cap(it_ap->cap));
+    ap->array[IT_ASID] = PDE_PTR(pptr_of_cap(it_pd->cap));
     armKSASIDTable[IT_ASID >> asidLowBits] = ap;
 }
 

@@ -344,7 +344,6 @@ try_init_kernel(
 )
 {
     cap_t root_cnode_cap;
-    cap_t it_ap_cap;
     cap_t it_pd_cap;
     cap_t ipcbuf_cap;
     region_t ui_reg = paddr_to_pptr_reg((p_region_t) {
@@ -419,6 +418,12 @@ try_init_kernel(
         return false;
     }
 
+    /* create/initialise the initial thread's ASID pool */
+    if (!create_it_asid_pool()) {
+        return false;
+    }
+    write_it_asid_pool();
+
     /* create the bootinfo frame */
     bi_frame_pptr = allocate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr);
     if (!bi_frame_pptr) {
@@ -462,13 +467,6 @@ try_init_kernel(
         return false;
     }
     ndks_boot.bi_frame->userImageFrames = create_frames_ret.region;
-
-    /* create/initialise the initial thread's ASID pool */
-    it_ap_cap = create_it_asid_pool(root_cnode_cap);
-    if (cap_get_capType(it_ap_cap) == cap_null_cap) {
-        return false;
-    }
-    write_it_asid_pool(it_ap_cap, it_pd_cap);
 
     /* create the idle thread */
     if (!create_idle_thread()) {
