@@ -398,7 +398,7 @@ try_init_kernel(
     root_cnode_cap = ndks_boot.root_cnode.cap;
 
     /* create the cap for managing thread domains */
-    create_domain_cap(root_cnode_cap);
+    create_domain_cap();
 
     /* create the IRQ CNode */
     if (!create_irq_cnode()) {

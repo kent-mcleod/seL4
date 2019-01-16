@@ -145,30 +145,6 @@ create_irq_cnode(void)
     return true;
 }
 
-/* Check domain scheduler assumptions. */
-compile_assert(num_domains_valid,
-               CONFIG_NUM_DOMAINS >= 1 && CONFIG_NUM_DOMAINS <= 256)
-compile_assert(num_priorities_valid,
-               CONFIG_NUM_PRIORITIES >= 1 && CONFIG_NUM_PRIORITIES <= 256)
-
-BOOT_CODE void
-create_domain_cap(cap_t root_cnode_cap)
-{
-    cap_t cap;
-    word_t i;
-
-    /* Check domain scheduler assumptions. */
-    assert(ksDomScheduleLength > 0);
-    for (i = 0; i < ksDomScheduleLength; i++) {
-        assert(ksDomSchedule[i].domain < CONFIG_NUM_DOMAINS);
-        assert(ksDomSchedule[i].length > 0);
-    }
-
-    cap = cap_domain_cap_new();
-    write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapDomain), cap);
-}
-
-
 BOOT_CODE cap_t
 create_ipcbuf_frame(cap_t root_cnode_cap, cap_t pd_cap, vptr_t vptr)
 {
@@ -732,6 +708,10 @@ alloc_kernel_object(cte_t *dest, object_t type, word_t user_size_bits)
         assert(status);
     }
 
+    /* The root cnode must be provided to itself. This would lose the
+     * in ndks_boot. So that this reference can be used when creating
+     * other kernel objects, the root cnode will be provided when
+     * finishing the bootstrapping of the kernel. */
     return true;
 }
 
@@ -760,4 +740,47 @@ create_root_cnode(void)
             wordBits - CONFIG_ROOT_CNODE_SIZE_BITS);
 
     return true;
+}
+
+BOOT_CODE void
+provide_cslot_to_root_cnode(cte_t *src, word_t offset)
+{
+    cte_t *cnode, *dest;
+
+    assert(offset < BIT(CONFIG_ROOT_CNODE_SIZE_BITS));
+
+    cnode = &ndks_boot.root_cnode;
+    assert(ensureEmptySlot(cnode) != EXCEPTION_NONE);
+
+    dest = SLOT_PTR(pptr_of_cap(cnode->cap), offset);
+    assert(ensureEmptySlot(dest) == EXCEPTION_NONE);
+
+    cteMove(src->cap, src, dest);
+}
+
+compile_assert(num_domains_valid,
+               CONFIG_NUM_DOMAINS >= 1 && CONFIG_NUM_DOMAINS <= 256)
+compile_assert(num_priorities_valid,
+               CONFIG_NUM_PRIORITIES >= 1 && CONFIG_NUM_PRIORITIES <= 256)
+
+BOOT_CODE void
+create_domain_cap(void)
+{
+    /* Should never fail. */
+    word_t i;
+    cte_t domain_slot;
+
+    /* Check domain scheduler assumptions. */
+    assert(ksDomScheduleLength > 0);
+    for (i = 0; i < ksDomScheduleLength; i++) {
+        assert(ksDomSchedule[i].domain < CONFIG_NUM_DOMAINS);
+        assert(ksDomSchedule[i].length > 0);
+    }
+
+    domain_slot.cap = cap_domain_cap_new();
+    domain_slot.cteMDBNode = nullMDBNode;
+    mdb_node_ptr_set_mdbRevocable(&domain_slot.cteMDBNode, true);
+    mdb_node_ptr_set_mdbFirstBadged(&domain_slot.cteMDBNode, true);
+
+    provide_cslot_to_root_cnode(&domain_slot, seL4_CapDomain);
 }
