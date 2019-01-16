@@ -17,22 +17,35 @@
 #define MAX_NUM_FREEMEM_REG 16
 #else
 #define MAX_NUM_FREEMEM_REG (ARRAY_SIZE(avail_p_regs) + 1)
-#endif
+#endif /* CONFIG_ARCH_ARM */
 
-/*
- * Resolve naming differences between the abstract specifications
- * of the bootstrapping phase and the runtime phase of the kernel.
- */
+/* Resolve naming differences between the abstract specifications
+ * of the bootstrapping phase and the runtime phase of the kernel. */
 typedef cte_t  slot_t;
 typedef cte_t* slot_ptr_t;
 #define SLOT_PTR(pptr, pos) (((slot_ptr_t)(pptr)) + (pos))
 #define pptr_of_cap (pptr_t)cap_get_capPtr
 
-/* (node-local) state accessed only during bootstrapping */
-
+/* (node-local) state accessed only during bootstrapping.
+ *
+ * Acts as a temporary store until bootstrapping is complete and the data can
+ * be moved into the boot info frame for the initial thread. */
 typedef struct ndks_boot {
-    region_t   freemem[MAX_NUM_FREEMEM_REG];
-    seL4_BootInfo*      bi_frame;
+    region_t freemem[MAX_NUM_FREEMEM_REG];
+
+    /* Auto-generated code for managing untyped capabilities makes assumptions
+     * about alignment. This is not automatically enforced by the compiler so
+     * annotation is required.
+     *
+     * Note that as the boot code has been reworked to retype untyped
+     * capabilities into kernel objects, this array will be exceeded earlier
+     * than previously anticipated. */
+    cte_t untyped[CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS]
+            __attribute__((aligned (8)));
+    seL4_SlotPos next_untyped_slot;
+    seL4_SlotRegion root_untyped_slots;
+
+    seL4_BootInfo *bi_frame;
     seL4_SlotPos slot_pos_cur;
     seL4_SlotPos slot_pos_max;
 } ndks_boot_t;
@@ -47,6 +60,11 @@ is_reg_empty(region_t reg)
     return reg.start == reg.end;
 }
 
+void init_ndks(void);
+void init_empty_cslot(cte_t *cslot);
+seL4_SlotRegion create_untypeds_for_region(region_t reg);
+void create_root_untypeds(void);
+
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
 void write_slot(slot_ptr_t slot_ptr, cap_t cap);
@@ -55,8 +73,6 @@ bool_t provide_cap(cap_t root_cnode_cap, cap_t cap);
 cap_t create_it_asid_pool(cap_t root_cnode_cap);
 void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
 bool_t create_idle_thread(void);
-bool_t create_untypeds_for_region(cap_t root_cnode_cap, bool_t device_memory, region_t reg, seL4_SlotPos first_untyped_slot);
-bool_t create_kernel_untypeds(cap_t root_cnode_cap, region_t boot_mem_reuse_reg, seL4_SlotPos first_untyped_slot);
 void bi_finalise(void);
 bool_t create_irq_cnode(void);
 void create_domain_cap(cap_t root_cnode_cap);
@@ -101,4 +117,4 @@ create_initial_thread(
 );
 
 void init_core_state(tcb_t *scheduler_action);
-#endif
+#endif /* __KERNEL_BOOT_H */

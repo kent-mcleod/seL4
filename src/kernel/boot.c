@@ -20,6 +20,7 @@
 #include <linker.h>
 #include <plat/machine/hardware.h>
 #include <util.h>
+#include <object/untyped.h>
 
 /* (node-local) state accessed only during bootstrapping */
 #define IRQ_CNODE_BITS (seL4_WordBits - clzl(maxIRQ * sizeof(cte_t)))
@@ -497,54 +498,79 @@ init_core_state(tcb_t *scheduler_action)
     NODE_STATE(ksCurThread) = NODE_STATE(ksIdleThread);
 }
 
-BOOT_CODE static bool_t
-provide_untyped_cap(
-    cap_t      root_cnode_cap,
-    bool_t     device_memory,
-    pptr_t     pptr,
-    word_t     size_bits,
-    seL4_SlotPos first_untyped_slot
-)
+BOOT_CODE void
+bi_finalise(void)
 {
-    bool_t ret;
-    cap_t ut_cap;
-    word_t i = ndks_boot.slot_pos_cur - first_untyped_slot;
-    if (i < CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS) {
-        ndks_boot.bi_frame->untypedList[i] = (seL4_UntypedDesc) {
-            pptr_to_paddr((void*)pptr), 0, 0, size_bits, device_memory
-        };
-        ut_cap = cap_untyped_cap_new(MAX_FREE_INDEX(size_bits),
-                                     device_memory, size_bits, pptr);
-        ret = provide_cap(root_cnode_cap, ut_cap);
-    } else {
-        printf("Kernel init: Too many untyped regions for boot info\n");
-        ret = true;
-    }
-    return ret;
+    seL4_SlotPos slot_pos_start = ndks_boot.slot_pos_cur;
+    seL4_SlotPos slot_pos_end = ndks_boot.slot_pos_max;
+    ndks_boot.bi_frame->empty = (seL4_SlotRegion) {
+        slot_pos_start, slot_pos_end
+    };
 }
 
-BOOT_CODE bool_t
-create_untypeds_for_region(
-    cap_t      root_cnode_cap,
-    bool_t     device_memory,
-    region_t   reg,
-    seL4_SlotPos first_untyped_slot
-)
+BOOT_CODE void
+init_ndks(void)
 {
-    word_t align_bits;
-    word_t size_bits;
+    /* Ensures that the ndks struct has a sane initial state. */
+    ndks_boot.next_untyped_slot = 0;
+}
+
+BOOT_CODE static inline bool_t
+is_untyped_slot_available(void)
+{
+    return ndks_boot.next_untyped_slot < CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS;
+}
+
+BOOT_CODE void
+init_empty_cslot(cte_t *cslot)
+{
+    /* Dangerous - use cautiously.
+     *
+     * Use of this function is required to ensure a sane initial state before
+     * performing operations. For instance, stale stack data can cause bugs. */
+    cslot->cap = cap_null_cap_new();
+    cslot->cteMDBNode = nullMDBNode;
+}
+
+BOOT_CODE static cte_t *
+alloc_untyped_slot(void)
+{
+    cte_t *ut_slot;
+
+    if (!is_untyped_slot_available()) {
+        return NULL;
+    }
+
+    ut_slot = &ndks_boot.untyped[ndks_boot.next_untyped_slot];
+    ndks_boot.next_untyped_slot++;
+
+    /* Guarantee sane initial state. */
+    init_empty_cslot(ut_slot);
+    return ut_slot;
+}
+
+BOOT_CODE seL4_SlotRegion
+create_untypeds_for_region(region_t reg)
+{
+
+    cte_t *ut_slot;
+    word_t align_bits, size_bits;
+    seL4_SlotRegion created_untypeds;
+
+    created_untypeds.start = ndks_boot.next_untyped_slot;
 
     while (!is_reg_empty(reg)) {
-        /* Determine the maximum size of the region */
-        size_bits = seL4_WordBits - 1 - clzl(reg.end - reg.start);
+        /* Determine the maximum size of the region. */
+        size_bits = seL4_WordBits - 1 - clzl(reg_size(reg));
 
-        /* Determine the alignment of the region */
+        /* Determine the alignment of the region. */
         if (reg.start != 0) {
             align_bits = ctzl(reg.start);
         } else {
             align_bits = size_bits;
         }
-        /* Reduce size bits to align if needed */
+
+        /* Reduce size_bits for alignment if needed. */
         if (align_bits < size_bits) {
             size_bits = align_bits;
         }
@@ -553,44 +579,56 @@ create_untypeds_for_region(
         }
 
         if (size_bits >= seL4_MinUntypedBits) {
-            if (!provide_untyped_cap(root_cnode_cap, device_memory, reg.start, size_bits, first_untyped_slot)) {
-                return false;
+            ut_slot = alloc_untyped_slot();
+            if (ut_slot == NULL) {
+                /* Allocation can fail when the number of temporary cslots
+                 * required exceeds the available number. */
+                break;
             }
+
+            assert(ensureEmptySlot(ut_slot) == EXCEPTION_NONE);
+
+            /* Creating untyped cap to represent this portion of memory. */
+            ut_slot->cap = cap_untyped_cap_new(MAX_FREE_INDEX(size_bits), false,
+                    size_bits, reg.start);
+
+            /* Initialising a sane state for the MDB node. */
+            ut_slot->cteMDBNode = nullMDBNode;
+            mdb_node_ptr_set_mdbRevocable(&ut_slot->cteMDBNode, true);
+            mdb_node_ptr_set_mdbFirstBadged(&ut_slot->cteMDBNode, true);
         }
+
         reg.start += BIT(size_bits);
     }
-    return true;
-}
 
-BOOT_CODE bool_t
-create_kernel_untypeds(cap_t root_cnode_cap, region_t boot_mem_reuse_reg, seL4_SlotPos first_untyped_slot)
-{
-    word_t     i;
-    region_t   reg;
-
-    /* if boot_mem_reuse_reg is not empty, we can create UT objs from boot code/data frames */
-    if (!create_untypeds_for_region(root_cnode_cap, false, boot_mem_reuse_reg, first_untyped_slot)) {
-        return false;
-    }
-
-    /* convert remaining freemem into UT objects and provide the caps */
-    for (i = 0; i < MAX_NUM_FREEMEM_REG; i++) {
-        reg = ndks_boot.freemem[i];
-        ndks_boot.freemem[i] = REG_EMPTY;
-        if (!create_untypeds_for_region(root_cnode_cap, false, reg, first_untyped_slot)) {
-            return false;
-        }
-    }
-
-    return true;
+    created_untypeds.end = ndks_boot.next_untyped_slot;
+    return created_untypeds;
 }
 
 BOOT_CODE void
-bi_finalise(void)
+create_root_untypeds(void)
 {
-    seL4_SlotPos slot_pos_start = ndks_boot.slot_pos_cur;
-    seL4_SlotPos slot_pos_end = ndks_boot.slot_pos_max;
-    ndks_boot.bi_frame->empty = (seL4_SlotRegion) {
-        slot_pos_start, slot_pos_end
+    word_t i;
+    seL4_SlotRegion used_untyped_slots;
+
+    /* By definition, root untypeds must be created before any other
+     * untypeds. */
+    assert(ndks_boot.next_untyped_slot == 0);
+
+    for (i = 0; i < MAX_NUM_FREEMEM_REG; i++) {
+        if (!is_untyped_slot_available()) {
+            /* This check exists in create_untypeds_for_region but is also
+             * here so that this loop can early exit. */
+            break;
+        }
+
+        used_untyped_slots = create_untypeds_for_region(ndks_boot.freemem[i]);
+        ndks_boot.freemem[i] = REG_EMPTY;
+    }
+
+    /* Marking the untypeds used as root untypeds. */
+    ndks_boot.root_untyped_slots = (seL4_SlotRegion) {
+        0,
+        used_untyped_slots.end
     };
 }
