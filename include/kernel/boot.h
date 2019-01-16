@@ -77,6 +77,7 @@ bool_t create_it_asid_pool(void);
 bool_t allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
         vptr_t ipcbuf_vptr);
 bool_t create_ipcbuf_frame(vptr_t vptr);
+bool_t create_ui_frames(region_t ui_reg, sword_t pv_offset);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
@@ -87,20 +88,6 @@ bool_t create_idle_thread(void);
 void bi_finalise(void);
 
 region_t allocate_extra_bi_region(word_t extra_size);
-
-typedef struct create_frames_of_region_ret {
-    seL4_SlotRegion region;
-    bool_t success;
-} create_frames_of_region_ret_t;
-
-create_frames_of_region_ret_t
-create_frames_of_region(
-    cap_t    root_cnode_cap,
-    cap_t    pd_cap,
-    region_t reg,
-    bool_t   do_map,
-    sword_t  pv_offset
-);
 
 cap_t
 create_it_pd_pts(

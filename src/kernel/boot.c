@@ -166,41 +166,6 @@ provide_cap(cap_t root_cnode_cap, cap_t cap)
     return true;
 }
 
-BOOT_CODE create_frames_of_region_ret_t
-create_frames_of_region(
-    cap_t    root_cnode_cap,
-    cap_t    pd_cap,
-    region_t reg,
-    bool_t   do_map,
-    sword_t  pv_offset
-)
-{
-    pptr_t     f;
-    cap_t      frame_cap;
-    seL4_SlotPos slot_pos_before;
-    seL4_SlotPos slot_pos_after;
-
-    slot_pos_before = ndks_boot.slot_pos_cur;
-
-    for (f = reg.start; f < reg.end; f += BIT(PAGE_BITS)) {
-        if (do_map) {
-            frame_cap = create_mapped_it_frame_cap(pd_cap, f, pptr_to_paddr((void*)(f - pv_offset)), IT_ASID, false, true);
-        } else {
-            frame_cap = create_unmapped_it_frame_cap(f, false);
-        }
-        if (!provide_cap(root_cnode_cap, frame_cap))
-            return (create_frames_of_region_ret_t) {
-            S_REG_EMPTY, false
-        };
-    }
-
-    slot_pos_after = ndks_boot.slot_pos_cur;
-
-    return (create_frames_of_region_ret_t) {
-        (seL4_SlotRegion) { slot_pos_before, slot_pos_after }, true
-    };
-}
-
 BOOT_CODE bool_t
 create_idle_thread(void)
 {
@@ -791,5 +756,54 @@ create_ipcbuf_frame(vptr_t vptr)
     }
 
     map_it_frame(&frame, vptr);
+    return true;
+}
+
+bool_t create_ui_frames(region_t ui_reg, sword_t pv_offset)
+{
+    word_t i;
+    pptr_t pptr;
+
+    cap_t cap;
+    cte_t frame;
+    cte_t *ut;
+
+    seL4_SlotRegion ui_ut;    /* Stored in ndks_boot. */
+    seL4_SlotRegion ui_frame; /* Stored in root cnode. */
+
+    /* TODO: Improve no memory error handling. */
+    ui_ut = create_untypeds_for_region(ui_reg);
+    if (ui_ut.start == ui_ut.end) {
+        return false;
+    }
+
+    init_empty_cslot(&frame);
+
+    assert(ndks_boot.next_root_cnode_slot != 0);
+    ui_frame.start = ndks_boot.next_root_cnode_slot;
+    ui_frame.end = ui_frame.start;
+
+    /* Iterating over each of the untypeds that were created for the region
+     * and retyping them into frames to be mapped.
+     *
+     * Note that the internal kernel functions for retyping kernel objects
+     * will zero the memory for untyped. This must be avoided as the memory
+     * contains the user image. The retyping must be done manually. */
+    for (i = ui_ut.start; i < ui_ut.end; i++) {
+        ut = &ndks_boot.untyped[i];
+        assert(ensureEmptySlot(ut) != EXCEPTION_NONE);
+
+        pptr = pptr_of_cap(ut->cap);
+        cap = create_unmapped_it_frame_cap(pptr, false);
+
+        cteInsert(cap, ut, &frame);
+        map_it_frame(&frame, pptr_to_paddr((void *) pptr) - pv_offset);
+
+        provide_cslot_to_root_cnode(&frame, ndks_boot.next_root_cnode_slot);
+        ndks_boot.next_root_cnode_slot++;
+        ui_frame.end++;
+    }
+
+    ndks_boot.bi_frame->userImageFrames = ui_frame;
     return true;
 }

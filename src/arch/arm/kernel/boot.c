@@ -351,7 +351,6 @@ try_init_kernel(
     });
     vptr_t bi_frame_vptr;
     vptr_t ipcbuf_vptr;
-    create_frames_of_region_ret_t create_frames_ret;
 
     /* convert from physical addresses to userland vptrs */
     v_region_t ui_v_reg;
@@ -437,6 +436,11 @@ try_init_kernel(
         return false;
     }
 
+    /* create all userland image frames */
+    if (!create_ui_frames(ui_reg, pv_offset)) {
+        return false;
+    }
+
     if (config_set(CONFIG_ARM_SMMU)) {
         ndks_boot.bi_frame->ioSpaceCaps = create_iospace_caps(root_cnode_cap);
         if (ndks_boot.bi_frame->ioSpaceCaps.start == 0 &&
@@ -447,21 +451,7 @@ try_init_kernel(
         ndks_boot.bi_frame->ioSpaceCaps = S_REG_EMPTY;
     }
 
-    /* create all userland image frames */
-    create_frames_ret =
-        create_frames_of_region(
-            root_cnode_cap,
-            it_pd_cap,
-            ui_reg,
-            true,
-            pv_offset
-        );
-    if (!create_frames_ret.success) {
-        return false;
-    }
-    ndks_boot.bi_frame->userImageFrames = create_frames_ret.region;
-
-    /* create the idle thread */
+   /* create the idle thread */
     if (!create_idle_thread()) {
         return false;
     }
