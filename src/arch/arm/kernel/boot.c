@@ -152,9 +152,10 @@ init_freemem(region_t ui_reg)
 }
 
 BOOT_CODE static void
-init_irqs(cap_t root_cnode_cap)
+init_irqs(void)
 {
     irq_t i;
+    cte_t irq_control;
 
     for (i = 0; i <= maxIRQ; i++) {
         setIRQState(IRQInactive, i);
@@ -184,8 +185,12 @@ init_irqs(cap_t root_cnode_cap)
     setIRQState(IRQIPI, irq_reschedule_ipi);
 #endif /* ENABLE_SMP_SUPPORT */
 
-    /* provide the IRQ control cap */
-    write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapIRQControl), cap_irq_control_cap_new());
+    irq_control.cap = cap_irq_control_cap_new();
+    irq_control.cteMDBNode = nullMDBNode;
+    mdb_node_ptr_set_mdbRevocable(&irq_control.cteMDBNode, true);
+    mdb_node_ptr_set_mdbFirstBadged(&irq_control.cteMDBNode, true);
+
+    provide_cslot_to_root_cnode(&irq_control, seL4_CapIRQControl);
 }
 
 /** This and only this function initialises the CPU.
@@ -406,7 +411,7 @@ try_init_kernel(
     }
 
     /* initialise the IRQ states and provide the IRQ control cap */
-    init_irqs(root_cnode_cap);
+    init_irqs();
 
     /* create the bootinfo frame */
     bi_frame_pptr = allocate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr);
