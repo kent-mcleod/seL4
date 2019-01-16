@@ -78,13 +78,13 @@ bool_t allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
         vptr_t ipcbuf_vptr);
 bool_t create_ipcbuf_frame(vptr_t vptr);
 bool_t create_ui_frames(region_t ui_reg, sword_t pv_offset);
+bool_t create_idle_thread(void);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
 void write_slot(slot_ptr_t slot_ptr, cap_t cap);
 bool_t provide_cap(cap_t root_cnode_cap, cap_t cap);
 void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
-bool_t create_idle_thread(void);
 void bi_finalise(void);
 
 region_t allocate_extra_bi_region(word_t extra_size);

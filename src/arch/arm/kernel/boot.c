@@ -441,6 +441,8 @@ try_init_kernel(
         return false;
     }
 
+    /* TODO: create_iospace_caps should be redefined to not have
+     * root_cnode_cap as an argument. */
     if (config_set(CONFIG_ARM_SMMU)) {
         ndks_boot.bi_frame->ioSpaceCaps = create_iospace_caps(root_cnode_cap);
         if (ndks_boot.bi_frame->ioSpaceCaps.start == 0 &&
@@ -455,6 +457,9 @@ try_init_kernel(
     if (!create_idle_thread()) {
         return false;
     }
+
+    /* temporary to ensure things build and run */
+    ipcbuf_cap = get_cslot_from_root_cnode(seL4_CapInitThreadIPCBuffer)->cap;
 
     /* Before creating the initial thread (which also switches to it)
      * we clean the cache so that any page table information written

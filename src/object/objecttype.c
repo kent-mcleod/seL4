@@ -456,10 +456,12 @@ createObject(object_t t, void *regionBase, word_t userSize, bool_t deviceMemory)
         SMP_COND_STATEMENT(tcb->tcbAffinity = getCurrentCPUIndex());
 
 #ifdef CONFIG_DEBUG_BUILD
-        strlcpy(tcb->tcbName, "child of: '", TCB_NAME_LENGTH);
-        strlcat(tcb->tcbName, NODE_STATE(ksCurThread)->tcbName, TCB_NAME_LENGTH);
-        strlcat(tcb->tcbName, "'", TCB_NAME_LENGTH);
-        tcbDebugAppend(tcb);
+        if (ksCurThread != NULL) {
+            /* Possible that this is the idle or initial thread. */
+            strlcpy(tcb->tcbName, "child of: '", TCB_NAME_LENGTH);
+            strlcat(tcb->tcbName, NODE_STATE(ksCurThread)->tcbName, TCB_NAME_LENGTH);
+            strlcat(tcb->tcbName, "'", TCB_NAME_LENGTH);
+        }
 #endif /* CONFIG_DEBUG_BUILD */
 
         return cap_thread_cap_new(TCB_REF(tcb));

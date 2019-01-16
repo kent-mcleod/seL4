@@ -166,32 +166,6 @@ provide_cap(cap_t root_cnode_cap, cap_t cap)
     return true;
 }
 
-BOOT_CODE bool_t
-create_idle_thread(void)
-{
-    pptr_t pptr;
-
-#ifdef ENABLE_SMP_SUPPORT
-    for (int i = 0; i < CONFIG_MAX_NUM_NODES; i++) {
-#endif /* ENABLE_SMP_SUPPORT */
-        pptr = alloc_region(seL4_TCBBits);
-        if (!pptr) {
-            printf("Kernel init failed: Unable to allocate tcb for idle thread\n");
-            return false;
-        }
-        memzero((void *)pptr, 1 << seL4_TCBBits);
-        NODE_STATE_ON_CORE(ksIdleThread, i) = TCB_PTR(pptr + TCB_OFFSET);
-        configureIdleThread(NODE_STATE_ON_CORE(ksIdleThread, i));
-#ifdef CONFIG_DEBUG_BUILD
-        setThreadName(NODE_STATE_ON_CORE(ksIdleThread, i), "idle_thread");
-#endif
-        SMP_COND_STATEMENT(NODE_STATE_ON_CORE(ksIdleThread, i)->tcbAffinity = i);
-#ifdef ENABLE_SMP_SUPPORT
-    }
-#endif /* ENABLE_SMP_SUPPORT */
-    return true;
-}
-
 BOOT_CODE tcb_t *
 create_initial_thread(
     cap_t  root_cnode_cap,
@@ -805,5 +779,36 @@ bool_t create_ui_frames(region_t ui_reg, sword_t pv_offset)
     }
 
     ndks_boot.bi_frame->userImageFrames = ui_frame;
+    return true;
+}
+
+BOOT_CODE bool_t
+create_idle_thread(void)
+{
+    cte_t tcb;
+    pptr_t pptr;
+    bool_t status;
+
+#ifdef ENABLE_SMP_SUPPORT
+    for (int i = 0; i < CONFIG_MAX_NUM_NODES; i++) {
+#endif /* ENABLE_SMP_SUPPORT */
+        init_empty_cslot(&tcb);
+
+        status = alloc_kernel_object(&tcb, seL4_TCBObject, seL4_TCBBits);
+        if (!status) {
+            return false;
+        }
+
+        pptr = pptr_of_cap(tcb.cap);
+
+        NODE_STATE_ON_CORE(ksIdleThread, i) = TCB_PTR(pptr + TCB_OFFSET);
+        configureIdleThread(NODE_STATE_ON_CORE(ksIdleThread, i));
+#ifdef CONFIG_DEBUG_BUILD
+        setThreadName(NODE_STATE_ON_CORE(ksIdleThread, i), "idle_thread");
+#endif
+        SMP_COND_STATEMENT(NODE_STATE_ON_CORE(ksIdleThread, i)->tcbAffinity = i);
+#ifdef ENABLE_SMP_SUPPORT
+    }
+#endif /* ENABLE_SMP_SUPPORT */
     return true;
 }
