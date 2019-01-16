@@ -435,7 +435,7 @@ BOOT_CODE void
 init_ndks(void)
 {
     /* Ensures that the ndks struct has a sane initial state. */
-    ndks_boot.next_root_cnode_slot = 0;
+    ndks_boot.next_root_cnode_slot = seL4_NumInitialCaps;
     ndks_boot.next_untyped_slot = 0;
 }
 
