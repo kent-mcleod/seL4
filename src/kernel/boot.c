@@ -129,27 +129,6 @@ write_slot(slot_ptr_t slot_ptr, cap_t cap)
     mdb_node_ptr_set_mdbFirstBadged(&slot_ptr->cteMDBNode, true);
 }
 
-BOOT_CODE cap_t
-create_ipcbuf_frame(cap_t root_cnode_cap, cap_t pd_cap, vptr_t vptr)
-{
-    cap_t cap;
-    pptr_t pptr;
-
-    /* allocate the IPC buffer frame */
-    pptr = alloc_region(PAGE_BITS);
-    if (!pptr) {
-        printf("Kernel init failing: could not create ipc buffer frame\n");
-        return cap_null_cap_new();
-    }
-    clearMemory((void*)pptr, PAGE_BITS);
-
-    /* create a cap of it and write it into the root CNode */
-    cap = create_mapped_it_frame_cap(pd_cap, pptr, vptr, IT_ASID, false, false);
-    write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadIPCBuffer), cap);
-
-    return cap;
-}
-
 BOOT_CODE region_t
 allocate_extra_bi_region(word_t extra_size)
 {
@@ -797,5 +776,20 @@ allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
     bi_frame->extraBIPages.start = 0;
     bi_frame->extraBIPages.end = 0;
 
+    return true;
+}
+
+BOOT_CODE bool_t
+create_ipcbuf_frame(vptr_t vptr)
+{
+    bool_t status;
+    cte_t frame;
+
+    status = create_it_frame(&frame);
+    if (!status) {
+        return false;
+    }
+
+    map_it_frame(&frame, vptr);
     return true;
 }

@@ -76,6 +76,7 @@ cte_t *get_cslot_from_root_cnode(word_t offset);
 bool_t create_it_asid_pool(void);
 bool_t allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
         vptr_t ipcbuf_vptr);
+bool_t create_ipcbuf_frame(vptr_t vptr);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
@@ -84,8 +85,6 @@ bool_t provide_cap(cap_t root_cnode_cap, cap_t cap);
 void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
 bool_t create_idle_thread(void);
 void bi_finalise(void);
-
-cap_t create_ipcbuf_frame(cap_t root_cnode_cap, cap_t pd_cap, vptr_t vptr);
 
 region_t allocate_extra_bi_region(word_t extra_size);
 

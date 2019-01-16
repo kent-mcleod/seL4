@@ -429,6 +429,14 @@ try_init_kernel(
         return false;
     }
 
+    /* temporary to ensure things build and run */
+    it_pd_cap = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace)->cap;
+
+    /* create the initial thread's IPC buffer */
+    if (!create_ipcbuf_frame(ipcbuf_vptr)) {
+        return false;
+    }
+
     if (config_set(CONFIG_ARM_SMMU)) {
         ndks_boot.bi_frame->ioSpaceCaps = create_iospace_caps(root_cnode_cap);
         if (ndks_boot.bi_frame->ioSpaceCaps.start == 0 &&
@@ -437,15 +445,6 @@ try_init_kernel(
         }
     } else {
         ndks_boot.bi_frame->ioSpaceCaps = S_REG_EMPTY;
-    }
-
-    /* temporary to ensure things build and run */
-    it_pd_cap = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace)->cap;
-
-    /* create the initial thread's IPC buffer */
-    ipcbuf_cap = create_ipcbuf_frame(root_cnode_cap, it_pd_cap, ipcbuf_vptr);
-    if (cap_get_capType(ipcbuf_cap) == cap_null_cap) {
-        return false;
     }
 
     /* create all userland image frames */
