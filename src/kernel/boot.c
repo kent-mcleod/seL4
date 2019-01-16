@@ -787,3 +787,14 @@ create_irq_cnode(void)
 
     return true;
 }
+
+BOOT_CODE cte_t *
+get_cslot_from_root_cnode(word_t offset)
+{
+    pptr_t pptr;
+
+    assert(offset < BIT(CONFIG_ROOT_CNODE_SIZE_BITS));
+
+    pptr = pptr_of_cap(ndks_boot.root_cnode.cap);
+    return SLOT_PTR(pptr, offset);
+}

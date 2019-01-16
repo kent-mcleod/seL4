@@ -72,6 +72,7 @@ bool_t create_root_cnode(void);
 void provide_cslot_to_root_cnode(cte_t *src, word_t offset);
 void create_domain_cap(void);
 bool_t create_irq_cnode(void);
+cte_t *get_cslot_from_root_cnode(word_t offset);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);

@@ -413,6 +413,12 @@ try_init_kernel(
     /* initialise the IRQ states and provide the IRQ control cap */
     init_irqs();
 
+    /* Construct an initial address space with enough virtual addresses
+     * to cover the user image + ipc buffer and bootinfo frames */
+    if (!create_it_address_space(it_v_reg)) {
+        return false;
+    }
+
     /* create the bootinfo frame */
     bi_frame_pptr = allocate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr);
     if (!bi_frame_pptr) {
@@ -427,13 +433,6 @@ try_init_kernel(
         }
     } else {
         ndks_boot.bi_frame->ioSpaceCaps = S_REG_EMPTY;
-    }
-
-    /* Construct an initial address space with enough virtual addresses
-     * to cover the user image + ipc buffer and bootinfo frames */
-    it_pd_cap = create_it_address_space(root_cnode_cap, it_v_reg);
-    if (cap_get_capType(it_pd_cap) == cap_null_cap) {
-        return false;
     }
 
     /* Create and map bootinfo frame cap */

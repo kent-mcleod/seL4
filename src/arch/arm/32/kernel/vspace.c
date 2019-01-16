@@ -528,77 +528,56 @@ map_it_pt_cap(cap_t pd_cap, cap_t pt_cap)
 #endif
 }
 
-/* Create a page table for the initial thread */
-
-static BOOT_CODE cap_t
-create_it_page_table_cap(cap_t pd, pptr_t pptr, vptr_t vptr, asid_t asid)
-{
-    cap_t cap;
-    cap = cap_page_table_cap_new(
-              1,    /* capPTIsMapped      */
-              asid, /* capPTMappedASID    */
-              vptr, /* capPTMappedAddress */
-              pptr  /* capPTBasePtr       */
-          );
-    if (asid != asidInvalid) {
-        map_it_pt_cap(pd, cap);
-    }
-    return cap;
-}
-
 /* Create an address space for the initial thread.
  * This includes page directory and page tables */
-BOOT_CODE cap_t
-create_it_address_space(cap_t root_cnode_cap, v_region_t it_v_reg)
+BOOT_CODE bool_t
+create_it_address_space(v_region_t it_v_reg)
 {
-    cap_t      pd_cap;
-    vptr_t     pt_vptr;
-    pptr_t     pt_pptr;
-    seL4_SlotPos slot_pos_before;
-    seL4_SlotPos slot_pos_after;
-    pptr_t pd_pptr;
+    bool_t status;
 
-    /* create PD obj and cap */
-    pd_pptr = alloc_region(seL4_PageDirBits);
-    if (!pd_pptr) {
-        return cap_null_cap_new();
+    cte_t *pd;
+    cte_t temp;
+
+    vptr_t pt_vptr;
+
+    /* Create page directory. */
+    init_empty_cslot(&temp);
+    status = alloc_kernel_object(&temp, seL4_ARM_PageDirectoryObject,
+            seL4_PageDirBits);
+    if (!status) {
+        return false;
     }
-    memzero(PDE_PTR(pd_pptr), 1 << seL4_PageDirBits);
-    copyGlobalMappings(PDE_PTR(pd_pptr));
-    cleanCacheRange_PoU(pd_pptr, pd_pptr + (1 << seL4_PageDirBits) - 1,
-                        addrFromPPtr((void *)pd_pptr));
-    pd_cap =
-        cap_page_directory_cap_new(
-            true,    /* capPDIsMapped   */
-            IT_ASID, /* capPDMappedASID */
-            pd_pptr  /* capPDBasePtr    */
-        );
-    slot_pos_before = ndks_boot.slot_pos_cur;
-    write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadVSpace), pd_cap);
 
-    /* create all PT objs and caps necessary to cover userland image */
+    cap_page_directory_cap_ptr_set_capPDMappedASID(&temp.cap, IT_ASID);
+    cap_page_directory_cap_ptr_set_capPDIsMapped(&temp.cap, 1);
 
+    provide_cslot_to_root_cnode(&temp, seL4_CapInitThreadVSpace);
+    pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
+
+    /* Create page tables to cover userland image. */
     for (pt_vptr = ROUND_DOWN(it_v_reg.start, PT_INDEX_BITS + PAGE_BITS);
             pt_vptr < it_v_reg.end;
             pt_vptr += BIT(PT_INDEX_BITS + PAGE_BITS)) {
-        pt_pptr = alloc_region(seL4_PageTableBits);
-        if (!pt_pptr) {
-            return cap_null_cap_new();
+
+        status = alloc_kernel_object(&temp, seL4_ARM_PageTableObject,
+                seL4_PageTableBits);
+        if (!status) {
+            return false;
         }
-        memzero(PTE_PTR(pt_pptr), 1 << seL4_PageTableBits);
-        if (!provide_cap(root_cnode_cap,
-                         create_it_page_table_cap(pd_cap, pt_pptr, pt_vptr, IT_ASID))
-           ) {
-            return cap_null_cap_new();
-        }
+
+        cap_page_table_cap_ptr_set_capPTIsMapped(&temp.cap, 1);
+        cap_page_table_cap_ptr_set_capPTMappedASID(&temp.cap, IT_ASID);
+        cap_page_table_cap_ptr_set_capPTMappedAddress(&temp.cap, pt_vptr);
+
+        /* Map table. */
+        map_it_pt_cap(pd->cap, temp.cap);
+
+        /* Must increment as the slot is not a dedicated slot. */
+        provide_cslot_to_root_cnode(&temp, ndks_boot.next_root_cnode_slot);
+        ndks_boot.next_root_cnode_slot++;
     }
 
-    slot_pos_after = ndks_boot.slot_pos_cur;
-    ndks_boot.bi_frame->userImagePaging = (seL4_SlotRegion) {
-        slot_pos_before, slot_pos_after
-    };
-
-    return pd_cap;
+    return true;
 }
 
 BOOT_CODE cap_t
