@@ -390,10 +390,12 @@ try_init_kernel(
     create_root_untypeds();
 
     /* create the root cnode */
-    root_cnode_cap = create_root_cnode();
-    if (cap_get_capType(root_cnode_cap) == cap_null_cap) {
+    if (!create_root_cnode()) {
         return false;
     }
+
+    /* temporary to ensure things build and run */
+    root_cnode_cap = ndks_boot.root_cnode.cap;
 
     /* create the cap for managing thread domains */
     create_domain_cap(root_cnode_cap);

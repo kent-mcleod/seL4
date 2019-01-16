@@ -21,6 +21,7 @@
 #include <plat/machine/hardware.h>
 #include <util.h>
 #include <object/untyped.h>
+#include <object/objecttype.h>
 
 /* (node-local) state accessed only during bootstrapping */
 #define IRQ_CNODE_BITS (seL4_WordBits - clzl(maxIRQ * sizeof(cte_t)))
@@ -127,44 +128,6 @@ write_slot(slot_ptr_t slot_ptr, cap_t cap)
     mdb_node_ptr_set_mdbRevocable  (&slot_ptr->cteMDBNode, true);
     mdb_node_ptr_set_mdbFirstBadged(&slot_ptr->cteMDBNode, true);
 }
-
-/* Our root CNode needs to be able to fit all the initial caps and not
- * cover all of memory.
- */
-compile_assert(root_cnode_size_valid,
-               CONFIG_ROOT_CNODE_SIZE_BITS < 32 - seL4_SlotBits &&
-               (1U << CONFIG_ROOT_CNODE_SIZE_BITS) >= seL4_NumInitialCaps)
-
-BOOT_CODE cap_t
-create_root_cnode(void)
-{
-    pptr_t  pptr;
-    cap_t   cap;
-
-    /* write the number of root CNode slots to global state */
-    ndks_boot.slot_pos_max = BIT(CONFIG_ROOT_CNODE_SIZE_BITS);
-
-    /* create an empty root CNode */
-    pptr = alloc_region(CONFIG_ROOT_CNODE_SIZE_BITS + seL4_SlotBits);
-    if (!pptr) {
-        printf("Kernel init failing: could not create root cnode\n");
-        return cap_null_cap_new();
-    }
-    memzero(CTE_PTR(pptr), 1U << (CONFIG_ROOT_CNODE_SIZE_BITS + seL4_SlotBits));
-    cap =
-        cap_cnode_cap_new(
-            CONFIG_ROOT_CNODE_SIZE_BITS,      /* radix      */
-            wordBits - CONFIG_ROOT_CNODE_SIZE_BITS, /* guard size */
-            0,                                /* guard      */
-            pptr                              /* pptr       */
-        );
-
-    /* write the root CNode cap into the root CNode */
-    write_slot(SLOT_PTR(pptr, seL4_CapInitThreadCNode), cap);
-
-    return cap;
-}
-
 
 BOOT_CODE bool_t
 create_irq_cnode(void)
@@ -512,6 +475,7 @@ BOOT_CODE void
 init_ndks(void)
 {
     /* Ensures that the ndks struct has a sane initial state. */
+    ndks_boot.next_root_cnode_slot = 0;
     ndks_boot.next_untyped_slot = 0;
 }
 
@@ -631,4 +595,169 @@ create_root_untypeds(void)
         0,
         used_untyped_slots.end
     };
+}
+
+BOOT_CODE static inline word_t
+align_up(word_t base_value, word_t alignment)
+{
+    return (base_value + (BIT(alignment) - 1)) & ~MASK(alignment);
+}
+
+BOOT_CODE static bool_t
+untyped_retype_wrapper(cte_t *src, cte_t *dest, object_t type,
+        word_t user_size_bits)
+{
+    /* This function is a BOOT_CODE wrapper around invokeUntyped_Retype and
+     * maintains some of the semantics that invokeUntyped_Retype has.
+     *
+     * Note that user_size_bits is not necessarily the actual size in memory.
+     * This is explained in a comment in invokeUntyped_Retype. */
+    bool_t reset, device_memory;
+    word_t object_size_bits, untyped_free_bytes;
+    word_t free_index, free_ref;
+    exception_t status;
+
+    /* The wrapper attempts to make some of the sanity checks that are present
+     * in decodeUntypedInvocation but they are not complete. As the wrapper is
+     * only used internally, it requires the caller to provide correct
+     * arguments. */
+    assert(cap_get_capType(src->cap) == cap_untyped_cap);
+    assert(ensureEmptySlot(dest) == EXCEPTION_NONE);
+    assert(type < seL4_ObjectTypeCount);
+
+    device_memory = cap_untyped_cap_get_capIsDevice(src->cap);
+    assert(!device_memory || Arch_isFrameType(type));
+
+    object_size_bits = getObjectSize(type, user_size_bits);
+    assert(user_size_bits < wordBits);
+    assert(object_size_bits <= seL4_MaxUntypedBits);
+
+    assert(type != seL4_CapTableObject || user_size_bits > 0);
+    assert(type != seL4_UntypedObject || user_size_bits >= seL4_MinUntypedBits);
+
+    status = ensureNoChildren(src);
+    if (status != EXCEPTION_NONE) {
+        free_index = cap_untyped_cap_get_capFreeIndex(src->cap);
+        reset = false;
+    } else {
+        free_index = 0;
+        reset = true;
+    }
+
+    /* There may not be enough room to retype the requested object. */
+    free_ref = GET_FREE_REF(cap_untyped_cap_get_capPtr(src->cap), free_index);
+    untyped_free_bytes = BIT(cap_untyped_cap_get_capBlockSize(src->cap)) -
+                         FREE_INDEX_TO_OFFSET(free_index);
+    if (untyped_free_bytes < BIT(object_size_bits)) {
+        /* Function is only expected to fail when not enough space
+         * is available in the untyped. */
+        return false;
+    }
+
+    free_ref = align_up(free_ref, object_size_bits);
+    status = invokeUntyped_Retype(
+        src,
+        reset,
+        (void *) free_ref,
+        type,
+        object_size_bits,
+        (slot_range_t) {
+            dest,
+            0,
+            1
+        },
+        device_memory);
+    assert(status == EXCEPTION_NONE);
+
+    return true;
+}
+
+BOOT_CODE bool_t
+alloc_kernel_object(cte_t *dest, object_t type, word_t user_size_bits)
+{
+    /* Kernel objects are allocated so that when revoked, the underlying
+     * memory can be reused.
+     *
+     * Instead of retyping a root untyped immediately into a kernel object, it
+     * is first retyped into an untyped the same size as the kernel object.
+     * This is done so that individual kernel objects can be revoked and
+     * memory reused without requiring all kernel objects allocated during
+     * bootstrapping to be revoked.
+     *
+     * This function can be used to create an untyped of a specific size. In
+     * this case, a second retype is obviously not necessary and so not
+     * done.
+     *
+     * Note that user_size_bits is not necessarily the actual size of the
+     * object in memory. See untyped_retype_wrapper for details. */
+    bool_t status;
+    word_t i, object_size_bits;
+    cte_t *root_ut, *child_ut;
+
+    assert(ensureEmptySlot(dest) == EXCEPTION_NONE);
+
+    if (type == seL4_UntypedObject) {
+        child_ut = dest;
+    } else {
+        child_ut = alloc_untyped_slot();
+        if (child_ut == NULL) {
+            return false;
+        }
+    }
+
+    /* Because of the special treatment of the size of some kernel object
+     * types, the untyped object must be created with the expected object
+     * size. */
+    object_size_bits = getObjectSize(type, user_size_bits);
+
+    /* Iterating through each of the root untypeds and attempting to
+     * retype them into the required size. */
+    for (i = 0; i < ndks_boot.root_untyped_slots.end; i++) {
+        root_ut = &ndks_boot.untyped[i];
+        status = untyped_retype_wrapper(root_ut, child_ut, seL4_UntypedObject,
+                object_size_bits);
+        if (status) {
+            break;
+        }
+    }
+
+    if (!status) {
+        /* No root untyped with enough space for the requested object can be
+         * found. */
+        return false;
+    }
+
+    if (type != seL4_UntypedObject) {
+        status = untyped_retype_wrapper(child_ut, dest, type, user_size_bits);
+        assert(status);
+    }
+
+    return true;
+}
+
+/* Our root CNode needs to be able to fit all the initial caps and not
+ * cover all of memory. */
+compile_assert(root_cnode_size_valid,
+               CONFIG_ROOT_CNODE_SIZE_BITS < 32 - seL4_SlotBits &&
+               (1U << CONFIG_ROOT_CNODE_SIZE_BITS) >= seL4_NumInitialCaps)
+
+BOOT_CODE bool_t
+create_root_cnode(void)
+{
+    bool_t status;
+    word_t user_size_bits;
+
+    user_size_bits = CONFIG_ROOT_CNODE_SIZE_BITS;
+    status = alloc_kernel_object(&ndks_boot.root_cnode, seL4_CapTableObject,
+            user_size_bits);
+    if (!status) {
+        return false;
+    }
+
+    /* When retyping into a seL4_CapTableObject the badge size is different
+     * to the expected badge size for the root cnode. */
+    cap_cnode_cap_ptr_set_capCNodeGuardSize(&ndks_boot.root_cnode.cap,
+            wordBits - CONFIG_ROOT_CNODE_SIZE_BITS);
+
+    return true;
 }

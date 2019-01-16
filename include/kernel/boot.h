@@ -31,6 +31,9 @@ typedef cte_t* slot_ptr_t;
  * Acts as a temporary store until bootstrapping is complete and the data can
  * be moved into the boot info frame for the initial thread. */
 typedef struct ndks_boot {
+    cte_t root_cnode;
+    seL4_SlotPos next_root_cnode_slot;
+
     region_t freemem[MAX_NUM_FREEMEM_REG];
 
     /* Auto-generated code for managing untyped capabilities makes assumptions
@@ -64,11 +67,12 @@ void init_ndks(void);
 void init_empty_cslot(cte_t *cslot);
 seL4_SlotRegion create_untypeds_for_region(region_t reg);
 void create_root_untypeds(void);
+bool_t alloc_kernel_object(cte_t *dest, object_t type, word_t user_size_bits);
+bool_t create_root_cnode(void);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
 void write_slot(slot_ptr_t slot_ptr, cap_t cap);
-cap_t create_root_cnode(void);
 bool_t provide_cap(cap_t root_cnode_cap, cap_t cap);
 cap_t create_it_asid_pool(cap_t root_cnode_cap);
 void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
