@@ -167,16 +167,6 @@ provide_cap(cap_t root_cnode_cap, cap_t cap)
 }
 
 BOOT_CODE void
-bi_finalise(void)
-{
-    seL4_SlotPos slot_pos_start = ndks_boot.slot_pos_cur;
-    seL4_SlotPos slot_pos_end = ndks_boot.slot_pos_max;
-    ndks_boot.bi_frame->empty = (seL4_SlotRegion) {
-        slot_pos_start, slot_pos_end
-    };
-}
-
-BOOT_CODE void
 init_ndks(void)
 {
     /* Ensures that the ndks struct has a sane initial state. */
@@ -827,4 +817,48 @@ init_core_state(void)
 #endif
     NODE_STATE(ksSchedulerAction) = scheduler_action;
     NODE_STATE(ksCurThread) = NODE_STATE(ksIdleThread);
+}
+
+BOOT_CODE void
+bi_finalise(void)
+{
+    /* Untyped capabilities must be sorted and inserted into the root cnode.
+     * Metadata about the untypeds must then be insterted into the boot info
+     * frame.
+     *
+     * TODO: Provide the used untypeds to the boot info frame.
+     * This isn't done yet because its not necessary for a successful boot. */
+    word_t i;
+    pptr_t pptr;
+
+    cte_t *root_ut;
+    seL4_SlotRegion root_ut_region;
+
+    root_ut_region.start = ndks_boot.next_root_cnode_slot;
+
+    for (i = 0; i < ndks_boot.root_untyped_slots.end; i++) {
+        root_ut = &ndks_boot.untyped[i];
+
+        /* Adding metadata for the untyped to the boot info frame. */
+        pptr = pptr_of_cap(root_ut->cap);
+        ndks_boot.bi_frame->untypedList[i] = (seL4_UntypedDesc) {
+            pptr_to_paddr((void *) pptr),
+            0, /* Padding. */
+            0, /* Padding. */
+            cap_get_capSizeBits(root_ut->cap),
+            false
+        };
+
+        /* Inserting the root untyped into the root cnode. */
+        provide_cslot_to_root_cnode(root_ut, ndks_boot.next_untyped_slot);
+        ndks_boot.next_untyped_slot++;
+    }
+
+    root_ut_region.end = ndks_boot.next_root_cnode_slot;
+    ndks_boot.bi_frame->untyped = root_ut_region;
+
+    ndks_boot.bi_frame->empty = (seL4_SlotRegion) {
+        ndks_boot.next_root_cnode_slot,
+        BIT(CONFIG_ROOT_CNODE_SIZE_BITS)
+    };
 }

@@ -82,13 +82,13 @@ bool_t create_idle_thread(void);
 bool_t create_initial_thread(vptr_t ui_v_entry, vptr_t bi_frame_vptr,
         vptr_t ipcbuf_vptr);
 void init_core_state(void);
+void bi_finalise(void);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
 void write_slot(slot_ptr_t slot_ptr, cap_t cap);
 bool_t provide_cap(cap_t root_cnode_cap, cap_t cap);
 void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
-void bi_finalise(void);
 
 region_t allocate_extra_bi_region(word_t extra_size);
 

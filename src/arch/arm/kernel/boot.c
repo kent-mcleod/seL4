@@ -465,17 +465,14 @@ try_init_kernel(
     }
     init_core_state();
 
-    /* Done last to preserve ndks_boot link. */
-    provide_cslot_to_root_cnode(&ndks_boot.root_cnode, seL4_CapInitThreadCNode);
-
-    /* temporarily here because the reset of the boot code will fail. */
-    return false;
-
     /* no shared-frame caps (ARM has no multikernel support) */
     ndks_boot.bi_frame->sharedFrames = S_REG_EMPTY;
 
     /* finalise the bootinfo frame */
     bi_finalise();
+
+    /* Done last to preserve ndks_boot link. */
+    provide_cslot_to_root_cnode(&ndks_boot.root_cnode, seL4_CapInitThreadCNode);
 
     /* make everything written by the kernel visible to userland. Cleaning to PoC is not
      * strictly neccessary, but performance is not critical here so clean and invalidate
@@ -485,7 +482,6 @@ try_init_kernel(
     if (config_set(CONFIG_ARM_HYPERVISOR_SUPPORT)) {
         invalidateHypTLB();
     }
-
 
     ksNumCPUs = 1;
 
