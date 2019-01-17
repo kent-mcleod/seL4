@@ -313,10 +313,6 @@ alloc_kernel_object(cte_t *dest, object_t type, word_t user_size_bits)
         assert(status);
     }
 
-    /* The root cnode must be provided to itself. This would lose the
-     * in ndks_boot. So that this reference can be used when creating
-     * other kernel objects, the root cnode will be provided when
-     * finishing the bootstrapping of the kernel. */
     return true;
 }
 
@@ -344,6 +340,10 @@ create_root_cnode(void)
     cap_cnode_cap_ptr_set_capCNodeGuardSize(&ndks_boot.root_cnode.cap,
             wordBits - CONFIG_ROOT_CNODE_SIZE_BITS);
 
+    /* The root cnode must be provided to itself. This would lose the
+     * in ndks_boot. So that this reference can be used when creating
+     * other kernel objects, the root cnode will be provided when
+     * finishing the bootstrapping of the kernel. */
     return true;
 }
 
