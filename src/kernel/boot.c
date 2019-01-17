@@ -474,7 +474,7 @@ allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
         return false;
     }
 
-    map_it_frame(&frame, vptr);
+    map_it_frame(&frame, vptr, false);
 
     ndks_boot.bi_frame = BI_PTR(pptr_of_cap(frame.cap));
 
@@ -506,56 +506,36 @@ create_ipcbuf_frame(vptr_t vptr)
         return false;
     }
 
-    map_it_frame(&frame, vptr);
+    map_it_frame(&frame, vptr, false);
     return true;
 }
 
 bool_t create_ui_frames(region_t ui_reg, sword_t pv_offset)
 {
     word_t i;
-    pptr_t pptr;
 
-    cap_t cap;
     cte_t frame;
-    cte_t *ut;
+    seL4_SlotRegion ui_frames; /* Stored in root cnode. */
 
-    seL4_SlotRegion ui_ut;    /* Stored in ndks_boot. */
-    seL4_SlotRegion ui_frame; /* Stored in root cnode. */
+    ui_frames.start = ndks_boot.next_root_cnode_slot;
+    for (i = ui_reg.start; i < ui_reg.end; i += BIT(PAGE_BITS)) {
 
-    /* TODO: Improve no memory error handling. */
-    ui_ut = create_untypeds_for_region(ui_reg);
-    if (ui_ut.start == ui_ut.end) {
-        return false;
-    }
+        /* TODO: Provide untypeds for frames.
+         * Currently not done to avoid having to solve the problem of where
+         * they are stored. */
+        frame.cap = create_unmapped_it_frame_cap(i, false);
+        frame.cteMDBNode = nullMDBNode;
+        mdb_node_ptr_set_mdbRevocable(&frame.cteMDBNode, true);
+        mdb_node_ptr_set_mdbFirstBadged(&frame.cteMDBNode, true);
 
-    init_empty_cslot(&frame);
-
-    assert(ndks_boot.next_root_cnode_slot != 0);
-    ui_frame.start = ndks_boot.next_root_cnode_slot;
-    ui_frame.end = ui_frame.start;
-
-    /* Iterating over each of the untypeds that were created for the region
-     * and retyping them into frames to be mapped.
-     *
-     * Note that the internal kernel functions for retyping kernel objects
-     * will zero the memory for untyped. This must be avoided as the memory
-     * contains the user image. The retyping must be done manually. */
-    for (i = ui_ut.start; i < ui_ut.end; i++) {
-        ut = &ndks_boot.untyped[i];
-        assert(ensureEmptySlot(ut) != EXCEPTION_NONE);
-
-        pptr = pptr_of_cap(ut->cap);
-        cap = create_unmapped_it_frame_cap(pptr, false);
-
-        cteInsert(cap, ut, &frame);
-        map_it_frame(&frame, pptr_to_paddr((void *) pptr) - pv_offset);
+        map_it_frame(&frame, pptr_to_paddr((void *)(i - pv_offset)), true);
 
         provide_cslot_to_root_cnode(&frame, ndks_boot.next_root_cnode_slot);
         ndks_boot.next_root_cnode_slot++;
-        ui_frame.end++;
     }
 
-    ndks_boot.bi_frame->userImageFrames = ui_frame;
+    ui_frames.end = ndks_boot.next_root_cnode_slot;
+    ndks_boot.bi_frame->userImageFrames = ui_frames;
     return true;
 }
 

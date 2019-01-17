@@ -604,7 +604,7 @@ create_it_frame(cte_t *cslot)
 }
 
 BOOT_CODE void
-map_it_frame(cte_t *frame, vptr_t vptr)
+map_it_frame(cte_t *frame, vptr_t vptr, bool_t executable)
 {
     cte_t *pd;
 
@@ -619,7 +619,7 @@ map_it_frame(cte_t *frame, vptr_t vptr)
     cap_small_frame_cap_ptr_set_capFMappedAddress(&frame->cap, vptr);
     frame->cap = cap_small_frame_cap_set_capFMappedASID(frame->cap, IT_ASID);
 
-    map_it_frame_cap(pd->cap, frame->cap, false);
+    map_it_frame_cap(pd->cap, frame->cap, executable);
 }
 
 #ifndef CONFIG_ARM_HYPERVISOR_SUPPORT
