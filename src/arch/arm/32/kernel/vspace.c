@@ -599,16 +599,8 @@ create_mapped_it_frame_cap(cap_t pd_cap, pptr_t pptr, vptr_t vptr, asid_t asid, 
 BOOT_CODE bool_t
 create_it_frame(cte_t *cslot)
 {
-    bool_t status;
-
     init_empty_cslot(cslot);
-
-    status = alloc_kernel_object(cslot, seL4_ARM_SmallPageObject, PAGE_BITS);
-    if (!status) {
-        return false;
-    }
-
-    return true;
+    return alloc_kernel_object(cslot, seL4_ARM_SmallPageObject, PAGE_BITS);
 }
 
 BOOT_CODE void
