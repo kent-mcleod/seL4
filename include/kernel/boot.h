@@ -48,6 +48,7 @@ typedef struct ndks_boot {
     seL4_SlotPos next_untyped_slot;
     seL4_SlotRegion root_untyped_slots;
 
+    seL4_SlotRegion user_paging_slots;
     seL4_BootInfo *bi_frame;
 } ndks_boot_t;
 

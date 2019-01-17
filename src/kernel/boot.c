@@ -742,7 +742,7 @@ bi_finalise(void)
 
     root_ut_region.end = ndks_boot.next_root_cnode_slot;
     ndks_boot.bi_frame->untyped = root_ut_region;
-
+    ndks_boot.bi_frame->userImagePaging = ndks_boot.user_paging_slots;
     ndks_boot.bi_frame->empty = (seL4_SlotRegion) {
         ndks_boot.next_root_cnode_slot,
         BIT(CONFIG_ROOT_CNODE_SIZE_BITS)

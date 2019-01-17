@@ -555,6 +555,7 @@ create_it_address_space(v_region_t it_v_reg)
     pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
 
     /* Create page tables to cover userland image. */
+    ndks_boot.user_paging_slots.start = ndks_boot.next_root_cnode_slot;
     for (pt_vptr = ROUND_DOWN(it_v_reg.start, PT_INDEX_BITS + PAGE_BITS);
             pt_vptr < it_v_reg.end;
             pt_vptr += BIT(PT_INDEX_BITS + PAGE_BITS)) {
@@ -576,6 +577,7 @@ create_it_address_space(v_region_t it_v_reg)
         provide_cslot_to_root_cnode(&temp, ndks_boot.next_root_cnode_slot);
         ndks_boot.next_root_cnode_slot++;
     }
+    ndks_boot.user_paging_slots.end = ndks_boot.next_root_cnode_slot;
 
     return true;
 }
