@@ -731,6 +731,7 @@ create_initial_thread(vptr_t ui_v_entry, vptr_t bi_frame_vptr,
     cte_t *pd;
     cte_t *ipc;
 
+    init_empty_cslot(&tcb_cslot);
     status = alloc_kernel_object(&tcb_cslot, seL4_TCBObject, seL4_TCBBits);
     if (!status) {
         return false;
