@@ -166,105 +166,6 @@ provide_cap(cap_t root_cnode_cap, cap_t cap)
     return true;
 }
 
-BOOT_CODE tcb_t *
-create_initial_thread(
-    cap_t  root_cnode_cap,
-    cap_t  it_pd_cap,
-    vptr_t ui_v_entry,
-    vptr_t bi_frame_vptr,
-    vptr_t ipcbuf_vptr,
-    cap_t  ipcbuf_cap
-)
-{
-    pptr_t pptr;
-    cap_t  cap;
-    tcb_t* tcb;
-    deriveCap_ret_t dc_ret;
-
-    /* allocate TCB */
-    pptr = alloc_region(seL4_TCBBits);
-    if (!pptr) {
-        printf("Kernel init failed: Unable to allocate tcb for initial thread\n");
-        return NULL;
-    }
-    memzero((void*)pptr, 1 << seL4_TCBBits);
-    tcb = TCB_PTR(pptr + TCB_OFFSET);
-    tcb->tcbTimeSlice = CONFIG_TIME_SLICE;
-    Arch_initContext(&tcb->tcbArch.tcbContext);
-
-    /* derive a copy of the IPC buffer cap for inserting */
-    dc_ret = deriveCap(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadIPCBuffer), ipcbuf_cap);
-    if (dc_ret.status != EXCEPTION_NONE) {
-        printf("Failed to derive copy of IPC Buffer\n");
-        return NULL;
-    }
-
-    /* initialise TCB (corresponds directly to abstract specification) */
-    cteInsert(
-        root_cnode_cap,
-        SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadCNode),
-        SLOT_PTR(pptr, tcbCTable)
-    );
-    cteInsert(
-        it_pd_cap,
-        SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadVSpace),
-        SLOT_PTR(pptr, tcbVTable)
-    );
-    cteInsert(
-        dc_ret.cap,
-        SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadIPCBuffer),
-        SLOT_PTR(pptr, tcbBuffer)
-    );
-    tcb->tcbIPCBuffer = ipcbuf_vptr;
-
-    /* Set the root thread's IPC buffer */
-    Arch_setTCBIPCBuffer(tcb, ipcbuf_vptr);
-
-    setRegister(tcb, capRegister, bi_frame_vptr);
-    setNextPC(tcb, ui_v_entry);
-
-    /* initialise TCB */
-    tcb->tcbPriority = seL4_MaxPrio;
-    tcb->tcbMCP = seL4_MaxPrio;
-    setupReplyMaster(tcb);
-    setThreadState(tcb, ThreadState_Running);
-
-    ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
-    ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
-    assert(ksCurDomain < CONFIG_NUM_DOMAINS && ksDomainTime > 0);
-
-    SMP_COND_STATEMENT(tcb->tcbAffinity = 0);
-
-    /* create initial thread's TCB cap */
-    cap = cap_thread_cap_new(TCB_REF(tcb));
-    write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapInitThreadTCB), cap);
-
-#ifdef CONFIG_DEBUG_BUILD
-    setThreadName(tcb, "rootserver");
-#endif
-
-    return tcb;
-}
-
-BOOT_CODE void
-init_core_state(tcb_t *scheduler_action)
-{
-#ifdef CONFIG_HAVE_FPU
-    NODE_STATE(ksActiveFPUState) = NULL;
-#endif
-#ifdef CONFIG_DEBUG_BUILD
-    /* add initial threads to the debug queue */
-    NODE_STATE(ksDebugTCBs) = NULL;
-    if (scheduler_action != SchedulerAction_ResumeCurrentThread &&
-            scheduler_action != SchedulerAction_ChooseNewThread) {
-        tcbDebugAppend(scheduler_action);
-    }
-    tcbDebugAppend(NODE_STATE(ksIdleThread));
-#endif
-    NODE_STATE(ksSchedulerAction) = scheduler_action;
-    NODE_STATE(ksCurThread) = NODE_STATE(ksIdleThread);
-}
-
 BOOT_CODE void
 bi_finalise(void)
 {
@@ -811,4 +712,118 @@ create_idle_thread(void)
     }
 #endif /* ENABLE_SMP_SUPPORT */
     return true;
+}
+
+BOOT_CODE bool_t
+create_initial_thread(vptr_t ui_v_entry, vptr_t bi_frame_vptr,
+        vptr_t ipcbuf_vptr)
+{
+    deriveCap_ret_t dc_ret;
+
+    tcb_t *tcb;
+    cte_t tcb_cslot;
+    pptr_t tcb_pptr;
+
+    bool_t status;
+
+    cte_t *ipc_buf;
+    cte_t *root_cnode;
+    cte_t *pd;
+    cte_t *ipc;
+
+    status = alloc_kernel_object(&tcb_cslot, seL4_TCBObject, seL4_TCBBits);
+    if (!status) {
+        return false;
+    }
+
+    tcb_pptr = pptr_of_cap(tcb_cslot.cap);
+    tcb = TCB_PTR(tcb_pptr + TCB_OFFSET);
+    tcb->tcbTimeSlice = CONFIG_TIME_SLICE;
+    Arch_initContext(&tcb->tcbArch.tcbContext);
+
+    /* Derive a copy of the IPC buffer cap for inserting. */
+    ipc_buf = get_cslot_from_root_cnode(seL4_CapInitThreadIPCBuffer);
+    dc_ret = deriveCap(ipc_buf, ipc_buf->cap);
+    if (dc_ret.status != EXCEPTION_NONE) {
+        printf("Failed to derive copy of IPC Buffer\n");
+        return false;
+    }
+
+    /* Initialise TCB (corresponds directly to abstract specification). */
+    root_cnode = &ndks_boot.root_cnode;
+    cteInsert(
+        root_cnode->cap,
+        root_cnode,
+        SLOT_PTR(tcb_pptr, tcbCTable)
+    );
+
+    pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
+    cteInsert(
+        pd->cap,
+        pd,
+        SLOT_PTR(tcb_pptr, tcbVTable)
+    );
+
+    ipc = get_cslot_from_root_cnode(seL4_CapInitThreadIPCBuffer);
+    cteInsert(
+        dc_ret.cap,
+        ipc,
+        SLOT_PTR(tcb_pptr, tcbBuffer)
+    );
+    tcb->tcbIPCBuffer = ipcbuf_vptr;
+
+    /* Set the root thread's IPC buffer. */
+    Arch_setTCBIPCBuffer(tcb, ipcbuf_vptr);
+
+    setRegister(tcb, capRegister, bi_frame_vptr);
+    setNextPC(tcb, ui_v_entry);
+
+    /* Initialise TCB. */
+    tcb->tcbPriority = seL4_MaxPrio;
+    tcb->tcbMCP = seL4_MaxPrio;
+    setupReplyMaster(tcb);
+    setThreadState(tcb, ThreadState_Running);
+
+    ksCurDomain = ksDomSchedule[ksDomScheduleIdx].domain;
+    ksDomainTime = ksDomSchedule[ksDomScheduleIdx].length;
+    assert(ksCurDomain < CONFIG_NUM_DOMAINS && ksDomainTime > 0);
+
+    SMP_COND_STATEMENT(tcb->tcbAffinity = 0);
+
+    provide_cslot_to_root_cnode(&tcb_cslot, seL4_CapInitThreadTCB);
+
+#ifdef CONFIG_DEBUG_BUILD
+    setThreadName(tcb, "rootserver");
+#endif
+
+    return true;
+}
+
+BOOT_CODE void
+init_core_state(void)
+{
+    cte_t *tcb_cslot;
+    pptr_t tcb_pptr;
+    tcb_t *scheduler_action;
+
+    tcb_cslot = get_cslot_from_root_cnode(seL4_CapInitThreadTCB);
+    assert(ensureEmptySlot(tcb_cslot) != EXCEPTION_NONE);
+
+    tcb_pptr = pptr_of_cap(tcb_cslot->cap);
+    scheduler_action = TCB_PTR(tcb_pptr + TCB_OFFSET);
+
+#ifdef CONFIG_HAVE_FPU
+    NODE_STATE(ksActiveFPUState) = NULL;
+#endif
+#ifdef CONFIG_DEBUG_BUILD
+    /* add initial threads to the debug queue */
+    NODE_STATE(ksDebugTCBs) = NULL;
+    if (scheduler_action != SchedulerAction_ResumeCurrentThread &&
+            scheduler_action != SchedulerAction_ChooseNewThread) {
+        tcbDebugAppend(scheduler_action);
+    }
+    tcbDebugAppend(NODE_STATE(ksIdleThread));
+#endif
+    NODE_STATE(ksSchedulerAction) = scheduler_action;
+    NODE_STATE(ksCurThread) = NODE_STATE(ksIdleThread);
 }

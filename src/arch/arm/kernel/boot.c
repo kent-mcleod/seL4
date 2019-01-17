@@ -344,8 +344,6 @@ try_init_kernel(
 )
 {
     cap_t root_cnode_cap;
-    cap_t it_pd_cap;
-    cap_t ipcbuf_cap;
     region_t ui_reg = paddr_to_pptr_reg((p_region_t) {
         ui_p_reg_start, ui_p_reg_end
     });
@@ -428,9 +426,6 @@ try_init_kernel(
         return false;
     }
 
-    /* temporary to ensure things build and run */
-    it_pd_cap = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace)->cap;
-
     /* create the initial thread's IPC buffer */
     if (!create_ipcbuf_frame(ipcbuf_vptr)) {
         return false;
@@ -453,13 +448,10 @@ try_init_kernel(
         ndks_boot.bi_frame->ioSpaceCaps = S_REG_EMPTY;
     }
 
-   /* create the idle thread */
+    /* create the idle thread */
     if (!create_idle_thread()) {
         return false;
     }
-
-    /* temporary to ensure things build and run */
-    ipcbuf_cap = get_cslot_from_root_cnode(seL4_CapInitThreadIPCBuffer)->cap;
 
     /* Before creating the initial thread (which also switches to it)
      * we clean the cache so that any page table information written
@@ -468,20 +460,13 @@ try_init_kernel(
     cleanInvalidateL1Caches();
 
     /* create the initial thread */
-    tcb_t *initial = create_initial_thread(
-                         root_cnode_cap,
-                         it_pd_cap,
-                         v_entry,
-                         bi_frame_vptr,
-                         ipcbuf_vptr,
-                         ipcbuf_cap
-                     );
-
-    if (initial == NULL) {
+    if (!create_initial_thread(v_entry, bi_frame_vptr, ipcbuf_vptr)) {
         return false;
     }
+    init_core_state();
 
-    init_core_state(initial);
+    /* temporarily here because the reset of the boot code will fail. */
+    return false;
 
     /* no shared-frame caps (ARM has no multikernel support) */
     ndks_boot.bi_frame->sharedFrames = S_REG_EMPTY;

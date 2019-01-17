@@ -79,6 +79,9 @@ bool_t allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
 bool_t create_ipcbuf_frame(vptr_t vptr);
 bool_t create_ui_frames(region_t ui_reg, sword_t pv_offset);
 bool_t create_idle_thread(void);
+bool_t create_initial_thread(vptr_t ui_v_entry, vptr_t bi_frame_vptr,
+        vptr_t ipcbuf_vptr);
+void init_core_state(void);
 
 pptr_t alloc_region(word_t size_bits);
 bool_t insert_region(region_t reg);
@@ -97,15 +100,4 @@ create_it_pd_pts(
     vptr_t     bi_frame_vptr
 );
 
-tcb_t *
-create_initial_thread(
-    cap_t  root_cnode_cap,
-    cap_t  it_pd_cap,
-    vptr_t ui_v_entry,
-    vptr_t bi_frame_vptr,
-    vptr_t ipcbuf_vptr,
-    cap_t  ipcbuf_cap
-);
-
-void init_core_state(tcb_t *scheduler_action);
 #endif /* __KERNEL_BOOT_H */
