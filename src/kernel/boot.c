@@ -736,8 +736,8 @@ bi_finalise(void)
         };
 
         /* Inserting the root untyped into the root cnode. */
-        provide_cslot_to_root_cnode(root_ut, ndks_boot.next_untyped_slot);
-        ndks_boot.next_untyped_slot++;
+        provide_cslot_to_root_cnode(root_ut, ndks_boot.next_root_cnode_slot);
+        ndks_boot.next_root_cnode_slot++;
     }
 
     root_ut_region.end = ndks_boot.next_root_cnode_slot;
