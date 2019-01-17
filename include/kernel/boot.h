@@ -49,13 +49,9 @@ typedef struct ndks_boot {
     seL4_SlotRegion root_untyped_slots;
 
     seL4_BootInfo *bi_frame;
-    seL4_SlotPos slot_pos_cur;
-    seL4_SlotPos slot_pos_max;
 } ndks_boot_t;
 
 extern ndks_boot_t ndks_boot;
-
-/* function prototypes */
 
 static inline bool_t
 is_reg_empty(region_t reg)
@@ -63,6 +59,7 @@ is_reg_empty(region_t reg)
     return reg.start == reg.end;
 }
 
+bool_t insert_region(region_t reg);
 void init_ndks(void);
 void init_empty_cslot(cte_t *cslot);
 seL4_SlotRegion create_untypeds_for_region(region_t reg);
@@ -83,21 +80,5 @@ bool_t create_initial_thread(vptr_t ui_v_entry, vptr_t bi_frame_vptr,
         vptr_t ipcbuf_vptr);
 void init_core_state(void);
 void bi_finalise(void);
-
-pptr_t alloc_region(word_t size_bits);
-bool_t insert_region(region_t reg);
-void write_slot(slot_ptr_t slot_ptr, cap_t cap);
-bool_t provide_cap(cap_t root_cnode_cap, cap_t cap);
-void write_it_pd_pts(cap_t root_cnode_cap, cap_t it_pd_cap);
-
-region_t allocate_extra_bi_region(word_t extra_size);
-
-cap_t
-create_it_pd_pts(
-    cap_t      root_cnode_cap,
-    v_region_t ui_v_reg,
-    vptr_t     ipcbuf_vptr,
-    vptr_t     bi_frame_vptr
-);
 
 #endif /* __KERNEL_BOOT_H */
