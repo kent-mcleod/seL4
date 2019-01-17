@@ -477,9 +477,7 @@ allocate_bi_frame(vptr_t vptr, node_id_t node_id, word_t num_nodes,
     map_it_frame(&frame, vptr, false);
 
     ndks_boot.bi_frame = BI_PTR(pptr_of_cap(frame.cap));
-
-    provide_cslot_to_root_cnode(&frame, ndks_boot.next_root_cnode_slot);
-    ndks_boot.next_root_cnode_slot++;
+    provide_cslot_to_root_cnode(&frame, seL4_CapBootInfoFrame);
 
     bi_frame = ndks_boot.bi_frame;
     bi_frame->nodeID = node_id;
