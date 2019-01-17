@@ -465,6 +465,9 @@ try_init_kernel(
     }
     init_core_state();
 
+    /* Done last to preserve ndks_boot link. */
+    provide_cslot_to_root_cnode(&ndks_boot.root_cnode, seL4_CapInitThreadCNode);
+
     /* temporarily here because the reset of the boot code will fail. */
     return false;
 
