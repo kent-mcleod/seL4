@@ -505,6 +505,8 @@ create_ipcbuf_frame(vptr_t vptr)
     }
 
     map_it_frame(&frame, vptr, false);
+    provide_cslot_to_root_cnode(&frame, seL4_CapInitThreadIPCBuffer);
+
     return true;
 }
 
