@@ -24,7 +24,7 @@
 #include <object/objecttype.h>
 
 /* (node-local) state accessed only during bootstrapping */
-#define IRQ_CNODE_BITS (seL4_WordBits - clzl(maxIRQ * sizeof(cte_t)))
+#define IRQ_CNODE_BITS (seL4_WordBits - clzl(maxIRQ))
 
 ndks_boot_t ndks_boot BOOT_DATA;
 
