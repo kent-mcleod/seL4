@@ -705,6 +705,10 @@ bi_finalise(void)
     for (i = 0; i < ndks_boot.root_untyped_slots.end; i++) {
         root_ut = &ndks_boot.untyped[i];
 
+        if (ensureNoChildren(root_ut) != EXCEPTION_NONE) {
+            continue;
+        }
+
         /* Adding metadata for the untyped to the boot info frame. */
         pptr = pptr_of_cap(root_ut->cap);
         ndks_boot.bi_frame->untypedList[i] = (seL4_UntypedDesc) {
