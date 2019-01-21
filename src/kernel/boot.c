@@ -241,7 +241,7 @@ untyped_retype_wrapper(cte_t *src, cte_t *dest, object_t type,
         reset,
         (void *) free_ref,
         type,
-        object_size_bits,
+        user_size_bits,
         (slot_range_t) {
             dest,
             0,
