@@ -465,6 +465,9 @@ try_init_kernel(
     }
     init_core_state();
 
+    /* create device untypeds */
+    create_device_untypeds();
+
     /* no shared-frame caps (ARM has no multikernel support) */
     ndks_boot.bi_frame->sharedFrames = S_REG_EMPTY;
 

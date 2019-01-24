@@ -47,6 +47,7 @@ typedef struct ndks_boot {
             __attribute__((aligned (8)));
     seL4_SlotPos next_untyped_slot;
     seL4_SlotRegion root_untyped_slots;
+    seL4_SlotRegion root_device_untyped_slots;
 
     seL4_SlotRegion user_paging_slots;
     seL4_BootInfo *bi_frame;
@@ -80,6 +81,7 @@ bool_t create_idle_thread(void);
 bool_t create_initial_thread(vptr_t ui_v_entry, vptr_t bi_frame_vptr,
         vptr_t ipcbuf_vptr);
 void init_core_state(void);
+void create_device_untypeds(void);
 void bi_finalise(void);
 
 #endif /* __KERNEL_BOOT_H */
