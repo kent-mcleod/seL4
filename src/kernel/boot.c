@@ -95,7 +95,7 @@ alloc_untyped_slot(void)
 }
 
 BOOT_CODE seL4_SlotRegion
-create_untypeds_for_region(region_t reg)
+create_untypeds_for_region(region_t reg, bool_t is_device)
 {
 
     cte_t *ut_slot;
@@ -134,8 +134,8 @@ create_untypeds_for_region(region_t reg)
             assert(ensureEmptySlot(ut_slot) == EXCEPTION_NONE);
 
             /* Creating untyped cap to represent this portion of memory. */
-            ut_slot->cap = cap_untyped_cap_new(MAX_FREE_INDEX(size_bits), false,
-                    size_bits, reg.start);
+            ut_slot->cap = cap_untyped_cap_new(MAX_FREE_INDEX(size_bits),
+                    is_device, size_bits, reg.start);
 
             /* Initialising a sane state for the MDB node. */
             ut_slot->cteMDBNode = nullMDBNode;
@@ -167,7 +167,8 @@ create_root_untypeds(void)
             break;
         }
 
-        used_untyped_slots = create_untypeds_for_region(ndks_boot.freemem[i]);
+        used_untyped_slots = create_untypeds_for_region(ndks_boot.freemem[i],
+                false);
         ndks_boot.freemem[i] = REG_EMPTY;
     }
 
@@ -696,7 +697,7 @@ create_device_untypeds(void)
 
     for (i = 0; i < get_num_dev_p_regs(); i++) {
         reg = paddr_to_pptr_reg(get_dev_p_reg(i));
-        created_untypeds = create_untypeds_for_region(reg);
+        created_untypeds = create_untypeds_for_region(reg, true);
     }
 
     ndks_boot.root_device_untyped_slots.end = created_untypeds.end;

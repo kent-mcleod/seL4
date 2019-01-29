@@ -64,7 +64,7 @@ is_reg_empty(region_t reg)
 bool_t insert_region(region_t reg);
 void init_ndks(void);
 void init_empty_cslot(cte_t *cslot);
-seL4_SlotRegion create_untypeds_for_region(region_t reg);
+seL4_SlotRegion create_untypeds_for_region(region_t reg, bool_t is_device);
 void create_root_untypeds(void);
 bool_t alloc_kernel_object(cte_t *dest, object_t type, word_t user_size_bits);
 bool_t create_root_cnode(void);
