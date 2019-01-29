@@ -712,12 +712,15 @@ bi_finalise(void)
      * TODO: Provide the used untypeds to the boot info frame.
      * This isn't done yet because its not necessary for a successful boot. */
     word_t i;
+    word_t bi_frame_untyped_index;
     pptr_t pptr;
 
     cte_t *root_ut;
     seL4_SlotRegion root_ut_region;
 
     root_ut_region.start = ndks_boot.next_root_cnode_slot;
+
+    bi_frame_untyped_index = 0;
 
     /* Providing root untypeds. */
     for (i = 0; i < ndks_boot.root_untyped_slots.end; i++) {
@@ -729,13 +732,14 @@ bi_finalise(void)
 
         /* Adding metadata for the untyped to the boot info frame. */
         pptr = pptr_of_cap(root_ut->cap);
-        ndks_boot.bi_frame->untypedList[i] = (seL4_UntypedDesc) {
+        ndks_boot.bi_frame->untypedList[bi_frame_untyped_index] = (seL4_UntypedDesc) {
             pptr_to_paddr((void *) pptr),
             0, /* Padding. */
             0, /* Padding. */
             cap_get_capSizeBits(root_ut->cap),
             false
         };
+        bi_frame_untyped_index++;
 
         /* Inserting the root untyped into the root cnode. */
         provide_cslot_to_root_cnode(root_ut, ndks_boot.next_root_cnode_slot);
@@ -750,19 +754,19 @@ bi_finalise(void)
 
         /* Adding metadata for the untyped to the boot info frame. */
         pptr = pptr_of_cap(root_ut->cap);
-        ndks_boot.bi_frame->untypedList[i] = (seL4_UntypedDesc) {
+        ndks_boot.bi_frame->untypedList[bi_frame_untyped_index] = (seL4_UntypedDesc) {
             pptr_to_paddr((void *) pptr),
             0, /* Padding. */
             0, /* Padding. */
             cap_get_capSizeBits(root_ut->cap),
             true
         };
+        bi_frame_untyped_index++;
 
         /* Inserting the root untyped into the root cnode. */
         provide_cslot_to_root_cnode(root_ut, ndks_boot.next_root_cnode_slot);
         ndks_boot.next_root_cnode_slot++;
     }
-
 
     root_ut_region.end = ndks_boot.next_root_cnode_slot;
     ndks_boot.bi_frame->untyped = root_ut_region;
