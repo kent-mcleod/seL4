@@ -462,6 +462,7 @@ createObject(object_t t, void *regionBase, word_t userSize, bool_t deviceMemory)
             strlcat(tcb->tcbName, NODE_STATE(ksCurThread)->tcbName, TCB_NAME_LENGTH);
             strlcat(tcb->tcbName, "'", TCB_NAME_LENGTH);
         }
+        tcbDebugAppend(tcb);
 #endif /* CONFIG_DEBUG_BUILD */
 
         return cap_thread_cap_new(TCB_REF(tcb));
