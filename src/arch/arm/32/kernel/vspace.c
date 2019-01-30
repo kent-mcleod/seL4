@@ -680,7 +680,7 @@ write_it_asid_pool(void)
     it_pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
 
     asid_pool_t* ap = ASID_POOL_PTR(pptr_of_cap(it_ap->cap));
-    ap->array[IT_ASID] = PDE_PTR(pptr_of_cap(it_pd->cap));
+    ap->array[IT_ASID & MASK(asidLowBits)] = PDE_PTR(pptr_of_cap(it_pd->cap));
     armKSASIDTable[IT_ASID >> asidLowBits] = ap;
 }
 
