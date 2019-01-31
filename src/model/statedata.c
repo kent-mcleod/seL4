@@ -34,7 +34,8 @@ compile_assert(ksReadyQueuesL1BitmapBigEnough, (L2_BITMAP_SIZE - 1) <= wordBits)
 UP_STATE_DEFINE(tcb_t *, ksCurThread);
 
 /* Idle thread TCB pointer */
-UP_STATE_DEFINE(tcb_t *, ksIdleThread);
+tcb_t ksIdleThreadObj ALIGN(BIT(TCB_SIZE_BITS));
+UP_STATE_DEFINE(tcb_t *, ksIdleThread) = &ksIdleThreadObj;
 
 /* Values of 0 and ~0 encode ResumeCurrentThread and ChooseNewThread
  * respectively; other values encode SwitchToThread and must be valid

@@ -497,23 +497,10 @@ bool_t create_ui_frames(region_t ui_reg, sword_t pv_offset)
 BOOT_CODE bool_t
 create_idle_thread(void)
 {
-    cte_t tcb;
-    pptr_t pptr;
-    bool_t status;
-
 #ifdef ENABLE_SMP_SUPPORT
     for (int i = 0; i < CONFIG_MAX_NUM_NODES; i++) {
 #endif /* ENABLE_SMP_SUPPORT */
-        init_empty_cslot(&tcb);
-
-        status = alloc_kernel_object(&tcb, seL4_TCBObject, seL4_TCBBits);
-        if (!status) {
-            return false;
-        }
-
-        pptr = pptr_of_cap(tcb.cap);
-
-        NODE_STATE_ON_CORE(ksIdleThread, i) = TCB_PTR(pptr + TCB_OFFSET);
+        NODE_STATE_ON_CORE(ksIdleThread, i) = TCB_PTR(ksIdleThread);
         configureIdleThread(NODE_STATE_ON_CORE(ksIdleThread, i));
 #ifdef CONFIG_DEBUG_BUILD
         setThreadName(NODE_STATE_ON_CORE(ksIdleThread, i), "idle_thread");
