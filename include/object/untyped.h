@@ -32,6 +32,12 @@
 #define GET_OFFSET_FREE_PTR(base, offset) ((void *)(((word_t)(base)) + (offset)))
 #define OFFSET_TO_FREE_INDEX(offset) ((offset)>>seL4_MinUntypedBits)
 
+static inline word_t
+alignUp(word_t baseValue, word_t alignment)
+{
+    return (baseValue + (BIT(alignment) - 1)) & ~MASK(alignment);
+}
+
 exception_t decodeUntypedInvocation(word_t invLabel, word_t length,
                                     cte_t *slot, cap_t cap,
                                     extra_caps_t excaps, bool_t call,

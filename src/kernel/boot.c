@@ -179,12 +179,6 @@ create_root_untypeds(void)
     };
 }
 
-BOOT_CODE static inline word_t
-align_up(word_t base_value, word_t alignment)
-{
-    return (base_value + (BIT(alignment) - 1)) & ~MASK(alignment);
-}
-
 BOOT_CODE static bool_t
 untyped_retype_wrapper(cte_t *src, cte_t *dest, object_t type,
         word_t user_size_bits)
@@ -236,7 +230,7 @@ untyped_retype_wrapper(cte_t *src, cte_t *dest, object_t type,
         return false;
     }
 
-    free_ref = align_up(free_ref, object_size_bits);
+    free_ref = alignUp(free_ref, object_size_bits);
     status = invokeUntyped_Retype(
         src,
         reset,

@@ -22,12 +22,6 @@
 #include <kernel/thread.h>
 #include <util.h>
 
-static word_t
-alignUp(word_t baseValue, word_t alignment)
-{
-    return (baseValue + (BIT(alignment) - 1)) & ~MASK(alignment);
-}
-
 exception_t
 decodeUntypedInvocation(word_t invLabel, word_t length, cte_t *slot,
                         cap_t cap, extra_caps_t excaps,
