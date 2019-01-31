@@ -414,12 +414,10 @@ try_init_kernel(
         return false;
     }
 
-    printf("Creating asid pool\n");
     /* create/initialise the initial thread's ASID pool */
     if (!create_it_asid_pool()) {
         return false;
     }
-    printf("Done.\n");
 
     /* create the bootinfo frame */
     if (!allocate_bi_frame(bi_frame_vptr, 0, CONFIG_MAX_NUM_NODES,
