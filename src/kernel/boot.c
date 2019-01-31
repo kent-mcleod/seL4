@@ -24,7 +24,8 @@
 #include <object/objecttype.h>
 
 /* (node-local) state accessed only during bootstrapping */
-#define IRQ_CNODE_BITS (seL4_WordBits - clzl(maxIRQ))
+// #define IRQ_CNODE_BITS (seL4_WordBits - clzl(maxIRQ))
+#define IRQ_MAX_CNODE_BITS seL4_WordBits
 
 ndks_boot_t ndks_boot BOOT_DATA;
 
@@ -383,25 +384,6 @@ create_domain_cap(void)
     mdb_node_ptr_set_mdbFirstBadged(&domain.cteMDBNode, true);
 
     provide_cslot_to_root_cnode(&domain, seL4_CapDomain);
-}
-
-BOOT_CODE bool_t
-create_irq_cnode(void)
-{
-    cte_t irq_cnode;
-    bool_t status;
-    pptr_t pptr;
-
-    init_empty_cslot(&irq_cnode);
-    status = alloc_kernel_object(&irq_cnode, seL4_CapTableObject, IRQ_CNODE_BITS);
-    if (!status) {
-        return false;
-    }
-
-    pptr = pptr_of_cap(irq_cnode.cap);
-    intStateIRQNode = (cte_t *) pptr;
-
-    return true;
 }
 
 BOOT_CODE cte_t *

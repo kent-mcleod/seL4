@@ -59,7 +59,8 @@ word_t ksWorkUnitsCompleted;
 
 /* CNode containing interrupt handler endpoints */
 irq_state_t intStateIRQTable[maxIRQ + 1];
-cte_t *intStateIRQNode;
+cte_t irq_cnode_obj[IRQ_MAX_CNODE_BITS];
+cte_t *intStateIRQNode = irq_cnode_obj;
 
 /* Currently active domain */
 dom_t ksCurDomain;

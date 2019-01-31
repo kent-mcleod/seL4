@@ -400,11 +400,6 @@ try_init_kernel(
     /* create the cap for managing thread domains */
     create_domain_cap();
 
-    /* create the IRQ CNode */
-    if (!create_irq_cnode()) {
-        return false;
-    }
-
     /* initialise the IRQ states and provide the IRQ control cap */
     init_irqs();
 
