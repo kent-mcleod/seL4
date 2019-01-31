@@ -457,10 +457,15 @@ createObject(object_t t, void *regionBase, word_t userSize, bool_t deviceMemory)
 
 #ifdef CONFIG_DEBUG_BUILD
         if (ksCurThread != NULL) {
-            /* Possible that this is the idle or initial thread. */
             strlcpy(tcb->tcbName, "child of: '", TCB_NAME_LENGTH);
             strlcat(tcb->tcbName, NODE_STATE(ksCurThread)->tcbName, TCB_NAME_LENGTH);
             strlcat(tcb->tcbName, "'", TCB_NAME_LENGTH);
+        } else {
+            /* Possible that this is the idle or initial thread.
+             * It is expected that the boot code sets the name manually.
+             *
+             * This is done for safety. */
+            tcb->tcbName[0] = '\0';
         }
         tcbDebugAppend(tcb);
 #endif /* CONFIG_DEBUG_BUILD */
