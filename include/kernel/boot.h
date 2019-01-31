@@ -19,6 +19,8 @@
 #define MAX_NUM_FREEMEM_REG (ARRAY_SIZE(avail_p_regs) + 1)
 #endif /* CONFIG_ARCH_ARM */
 
+#define IRQ_CNODE_SLOTS 256
+
 /* Resolve naming differences between the abstract specifications
  * of the bootstrapping phase and the runtime phase of the kernel. */
 typedef cte_t  slot_t;

@@ -401,6 +401,7 @@ try_init_kernel(
     create_domain_cap();
 
     /* initialise the IRQ states and provide the IRQ control cap */
+    assert(IRQ_CNODE_SLOTS > maxIRQ);
     init_irqs();
 
     /* Construct an initial address space with enough virtual addresses

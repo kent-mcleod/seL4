@@ -25,8 +25,6 @@
 
 /* (node-local) state accessed only during bootstrapping */
 // #define IRQ_CNODE_BITS (seL4_WordBits - clzl(maxIRQ))
-#define IRQ_MAX_CNODE_BITS seL4_WordBits
-
 ndks_boot_t ndks_boot BOOT_DATA;
 
 BOOT_CODE bool_t
