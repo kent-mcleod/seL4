@@ -77,7 +77,7 @@ init_empty_cslot(cte_t *cslot)
     cslot->cteMDBNode = nullMDBNode;
 }
 
-BOOT_CODE static cte_t *
+BOOT_CODE cte_t *
 alloc_untyped_slot(void)
 {
     cte_t *ut_slot;
@@ -413,46 +413,6 @@ get_cslot_from_root_cnode(word_t offset)
 
     pptr = pptr_of_cap(ndks_boot.root_cnode.cap);
     return SLOT_PTR(pptr, offset);
-}
-
-BOOT_CODE bool_t
-create_it_asid_pool(void)
-{
-    bool_t status;
-
-    cte_t *ut;
-    cte_t asid_pool;
-    cte_t asid_control;
-
-    pptr_t pptr;
-
-    ut = alloc_untyped_slot();
-    if (ut == NULL) {
-        return false;
-    }
-
-    status = alloc_kernel_object(ut, seL4_UntypedObject, seL4_ASIDPoolBits);
-    if (!status) {
-        return false;
-    }
-
-    /* Performing manual untyped retype.
-     * This is done manually because invokeUntyped_Retype cannot retype into
-     * an asid pool. */
-    init_empty_cslot(&asid_pool);
-    pptr = pptr_of_cap(ut->cap);
-
-    cteInsert(cap_asid_pool_cap_new(IT_ASID >> asidLowBits, WORD_REF(pptr)),
-            ut, &asid_pool);
-    provide_cslot_to_root_cnode(&asid_pool, seL4_CapInitThreadASIDPool);
-
-    asid_control.cap = cap_asid_control_cap_new();
-    asid_control.cteMDBNode = nullMDBNode;
-    mdb_node_ptr_set_mdbRevocable(&asid_control.cteMDBNode, true);
-    mdb_node_ptr_set_mdbFirstBadged(&asid_control.cteMDBNode, true);
-
-    provide_cslot_to_root_cnode(&asid_control, seL4_CapASIDControl);
-    return true;
 }
 
 BOOT_CODE bool_t

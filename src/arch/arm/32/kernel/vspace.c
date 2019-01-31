@@ -64,6 +64,14 @@ struct resolve_ret {
 };
 typedef struct resolve_ret resolve_ret_t;
 
+static exception_t
+performASIDPoolInvocation(asid_t asid, asid_pool_t *poolPtr,
+                          cte_t *pdCapSlot);
+
+static exception_t
+performASIDControlInvocation(void *frame, cte_t *slot,
+                             cte_t *parent, asid_t asid_base);
+
 #ifndef CONFIG_ARM_HYPERVISOR_SUPPORT
 static bool_t PURE pteCheckIfMapped(pte_t *pte);
 static bool_t PURE pdeCheckIfMapped(pde_t *pde);
@@ -548,8 +556,8 @@ create_it_address_space(v_region_t it_v_reg)
         return false;
     }
 
-    cap_page_directory_cap_ptr_set_capPDMappedASID(&temp.cap, IT_ASID);
-    cap_page_directory_cap_ptr_set_capPDIsMapped(&temp.cap, 1);
+    // cap_page_directory_cap_ptr_set_capPDMappedASID(&temp.cap, IT_ASID);
+    // cap_page_directory_cap_ptr_set_capPDIsMapped(&temp.cap, 1);
 
     provide_cslot_to_root_cnode(&temp, seL4_CapInitThreadVSpace);
     pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
@@ -578,6 +586,57 @@ create_it_address_space(v_region_t it_v_reg)
         ndks_boot.next_root_cnode_slot++;
     }
     ndks_boot.user_paging_slots.end = ndks_boot.next_root_cnode_slot;
+
+    cap_page_directory_cap_ptr_set_capPDMappedASID(&pd->cap, IT_ASID);
+    cap_page_directory_cap_ptr_set_capPDIsMapped(&pd->cap, 1);
+
+    return true;
+}
+
+BOOT_CODE bool_t
+create_it_asid_pool(void)
+{
+    bool_t status;
+
+    cte_t *ut, *pd;
+    cte_t asid_pool, asid_control;
+
+    exception_t exception;
+    pptr_t pptr;
+
+    asid_pool_t *ap;
+
+    /* Allocating untyped memory. */
+    ut = alloc_untyped_slot();
+    if (ut == NULL) {
+        return false;
+    }
+
+    status = alloc_kernel_object(ut, seL4_UntypedObject, seL4_ASIDPoolBits);
+    if (!status) {
+        return false;
+    }
+
+    pptr = pptr_of_cap(ut->cap);
+    init_empty_cslot(&asid_pool);
+
+    /* asid_base is assumed to be 0 as this is for the initial thread. */
+    exception = performASIDControlInvocation((void *) pptr, &asid_pool, ut, 0);
+    assert(exception == EXCEPTION_NONE);
+
+    ap = ASID_POOL_PTR(pptr_of_cap(asid_pool.cap));
+    pd = get_cslot_from_root_cnode(seL4_CapInitThreadPD);
+    exception = performASIDPoolInvocation(IT_ASID, ap, pd);
+    assert(exception == EXCEPTION_NONE);
+
+    init_empty_cslot(&asid_control);
+    asid_control.cap = cap_asid_control_cap_new();
+    asid_control.cteMDBNode = nullMDBNode;
+    mdb_node_ptr_set_mdbRevocable(&asid_control.cteMDBNode, true);
+    mdb_node_ptr_set_mdbFirstBadged(&asid_control.cteMDBNode, true);
+
+    provide_cslot_to_root_cnode(&asid_pool, seL4_CapInitThreadASIDPool);
+    provide_cslot_to_root_cnode(&asid_control, seL4_CapASIDControl);
 
     return true;
 }
@@ -671,18 +730,6 @@ activate_global_pd(void)
 }
 
 #endif /* CONFIG_ARM_HYPERVISOR_SUPPORT */
-
-BOOT_CODE void
-write_it_asid_pool(void)
-{
-    cte_t *it_ap, *it_pd;
-    it_ap = get_cslot_from_root_cnode(seL4_CapInitThreadASIDPool);
-    it_pd = get_cslot_from_root_cnode(seL4_CapInitThreadVSpace);
-
-    asid_pool_t* ap = ASID_POOL_PTR(pptr_of_cap(it_ap->cap));
-    ap->array[IT_ASID & MASK(asidLowBits)] = PDE_PTR(pptr_of_cap(it_pd->cap));
-    armKSASIDTable[IT_ASID >> asidLowBits] = ap;
-}
 
 /* ==================== BOOT CODE FINISHES HERE ==================== */
 
