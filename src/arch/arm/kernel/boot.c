@@ -343,7 +343,6 @@ try_init_kernel(
     vptr_t  v_entry
 )
 {
-    cap_t root_cnode_cap;
     region_t ui_reg = paddr_to_pptr_reg((p_region_t) {
         ui_p_reg_start, ui_p_reg_end
     });
@@ -394,9 +393,6 @@ try_init_kernel(
         return false;
     }
 
-    /* temporary to ensure things build and run */
-    root_cnode_cap = ndks_boot.root_cnode.cap;
-
     /* create the cap for managing thread domains */
     create_domain_cap();
 
@@ -431,10 +427,8 @@ try_init_kernel(
         return false;
     }
 
-    /* TODO: create_iospace_caps should be redefined to not have
-     * root_cnode_cap as an argument. */
     if (config_set(CONFIG_ARM_SMMU)) {
-        ndks_boot.bi_frame->ioSpaceCaps = create_iospace_caps(root_cnode_cap);
+        ndks_boot.bi_frame->ioSpaceCaps = create_iospace_caps();
         if (ndks_boot.bi_frame->ioSpaceCaps.start == 0 &&
                 ndks_boot.bi_frame->ioSpaceCaps.end == 0) {
             return false;

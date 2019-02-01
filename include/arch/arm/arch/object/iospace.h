@@ -30,7 +30,7 @@ void clearIOPageDirectory(cap_t cap);
 
 /* define dummy functions */
 static inline seL4_SlotRegion
-create_iospace_caps(cap_t root_cnode_cap)
+create_iospace_caps(void)
 {
     return S_REG_EMPTY;
 }
