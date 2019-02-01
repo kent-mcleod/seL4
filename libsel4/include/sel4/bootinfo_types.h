@@ -67,6 +67,8 @@ typedef struct {
     seL4_Domain       initThreadDomain; /* Initial thread's domain ID */
     seL4_SlotRegion   untyped;         /* untyped-object caps (untyped caps) */
     seL4_UntypedDesc  untypedList[CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS]; /* information about each untyped */
+    seL4_SlotRegion   usedUntyped;     /* used untyped caps */
+    seL4_UntypedDesc  usedUntypedList[CONFIG_MAX_NUM_BOOTINFO_UNTYPED_CAPS]; /* information about each used untyped */
     /* the untypedList should be the last entry in this struct, in order
      * to make this struct easier to represent in other languages */
 } seL4_BootInfo;

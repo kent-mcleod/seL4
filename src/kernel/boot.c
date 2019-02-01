@@ -627,71 +627,91 @@ create_device_untypeds(void)
 BOOT_CODE void
 bi_finalise(void)
 {
-    /* Untyped capabilities must be sorted and inserted into the root cnode.
-     * Metadata about the untypeds must then be insterted into the boot info
-     * frame.
-     *
-     * TODO: Provide the used untypeds to the boot info frame.
-     * This isn't done yet because its not necessary for a successful boot. */
-    word_t i;
-    word_t bi_frame_untyped_index;
+    word_t i, j;
+    word_t ut_index;
+    // word_t used_ut_index;
+
+    cte_t *ut;
     pptr_t pptr;
 
-    cte_t *root_ut;
+    seL4_SlotRegion bi_region;
     seL4_SlotRegion root_ut_region;
 
-    root_ut_region.start = ndks_boot.next_root_cnode_slot;
+    /* For backwards compatability - as I can't be bothered reworking
+     * userland right now - the root untypeds must be collected first as a
+     * seL4_SlotRegion of capabilities is passed to the initial thread for
+     * processing root untypeds.
+     *
+     * Ideally, seL4_UntypedDesc should be modified to explain the relationship
+     * it has with it's parent or lack of. This would shorten the following to
+     * a single loop and serve as a cleaner interface for userland.
+     *
+     * Unfortunately, userland uses the knowledge from bi_frame->untyped to
+     * determine what cspace slots are available. When trying to provide used
+     * untyped in a backwards compatiable way, errors occur when userland
+     * tries to use slots taken by used untypeds. */
 
-    bi_frame_untyped_index = 0;
+    ut_index = 0;
+    // used_ut_index = 0;
+    root_ut_region = ndks_boot.root_untyped_slots;
 
-    /* Providing root untypeds. */
-    for (i = 0; i < ndks_boot.root_untyped_slots.end; i++) {
-        root_ut = &ndks_boot.untyped[i];
+    bi_region.start = ndks_boot.next_root_cnode_slot;
+    for (i = 0; i < 2; i++) {
+        for (j = root_ut_region.start; j < root_ut_region.end; j++) {
+            ut = &ndks_boot.untyped[j];
+            if (ensureNoChildren(ut) != EXCEPTION_NONE) {
+                /* Untyped is a parent. */
+                continue;
+            }
 
-        if (ensureNoChildren(root_ut) != EXCEPTION_NONE) {
-            continue;
+            pptr = pptr_of_cap(ut->cap);
+            ndks_boot.bi_frame->untypedList[ut_index] = (seL4_UntypedDesc) {
+                pptr_to_paddr((void *) pptr),
+                0,
+                0,
+                cap_untyped_cap_get_capBlockSize(ut->cap),
+                cap_untyped_cap_get_capIsDevice(ut->cap)
+            };
+            ut_index++;
+
+            provide_cslot_to_root_cnode(ut, ndks_boot.next_root_cnode_slot);
+            ndks_boot.next_root_cnode_slot++;
         }
 
-        /* Adding metadata for the untyped to the boot info frame. */
-        pptr = pptr_of_cap(root_ut->cap);
-        ndks_boot.bi_frame->untypedList[bi_frame_untyped_index] = (seL4_UntypedDesc) {
-            pptr_to_paddr((void *) pptr),
-            0, /* Padding. */
-            0, /* Padding. */
-            cap_get_capSizeBits(root_ut->cap),
-            false
-        };
-        bi_frame_untyped_index++;
-
-        /* Inserting the root untyped into the root cnode. */
-        provide_cslot_to_root_cnode(root_ut, ndks_boot.next_root_cnode_slot);
-        ndks_boot.next_root_cnode_slot++;
+        root_ut_region = ndks_boot.root_device_untyped_slots;
     }
 
-    /* Providing root device untypeds. */
-    for (i = ndks_boot.root_device_untyped_slots.start;
-            i < ndks_boot.root_device_untyped_slots.end; i++) {
+    bi_region.end = ndks_boot.next_root_cnode_slot;
+    ndks_boot.bi_frame->untyped = bi_region;
 
-        root_ut = &ndks_boot.untyped[i];
+    // /* Used untyped. */
+    // bi_region.start = ndks_boot.next_root_cnode_slot;
+    // for (i = 0; i < ndks_boot.next_untyped_slot; i++) {
+    //     if ((i >= ndks_boot.root_untyped_slots.start
+    //             && i < ndks_boot.root_untyped_slots.end)
+    //             || (i >= ndks_boot.root_device_untyped_slots.start
+    //             && i < ndks_boot.root_device_untyped_slots.end)) {
+    //         /* Already provided in the loop before. */
+    //         continue;
+    //     }
 
-        /* Adding metadata for the untyped to the boot info frame. */
-        pptr = pptr_of_cap(root_ut->cap);
-        ndks_boot.bi_frame->untypedList[bi_frame_untyped_index] = (seL4_UntypedDesc) {
-            pptr_to_paddr((void *) pptr),
-            0, /* Padding. */
-            0, /* Padding. */
-            cap_get_capSizeBits(root_ut->cap),
-            true
-        };
-        bi_frame_untyped_index++;
+    //     ut = &ndks_boot.untyped[i];
+    //     pptr = pptr_of_cap(ut->cap);
+    //     ndks_boot.bi_frame->usedUntypedList[used_ut_index] = (seL4_UntypedDesc) {
+    //         pptr_to_paddr((void *) pptr),
+    //         0,
+    //         0,
+    //         cap_untyped_cap_get_capBlockSize(ut->cap),
+    //         cap_untyped_cap_get_capIsDevice(ut->cap) /* This should always be false but evaluated anyways. */
+    //     };
 
-        /* Inserting the root untyped into the root cnode. */
-        provide_cslot_to_root_cnode(root_ut, ndks_boot.next_root_cnode_slot);
-        ndks_boot.next_root_cnode_slot++;
-    }
+    //     provide_cslot_to_root_cnode(ut, ndks_boot.next_root_cnode_slot);
+    //     ndks_boot.next_root_cnode_slot++;
+    // }
 
-    root_ut_region.end = ndks_boot.next_root_cnode_slot;
-    ndks_boot.bi_frame->untyped = root_ut_region;
+    // bi_region.end = ndks_boot.next_root_cnode_slot;
+    // ndks_boot.bi_frame->usedUntyped = bi_region;
+
     ndks_boot.bi_frame->userImagePaging = ndks_boot.user_paging_slots;
     ndks_boot.bi_frame->empty = (seL4_SlotRegion) {
         ndks_boot.next_root_cnode_slot,
