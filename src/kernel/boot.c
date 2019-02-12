@@ -230,7 +230,10 @@ untyped_retype_wrapper(cte_t *src, cte_t *dest, object_t type,
     }
 
     free_ref = alignUp(free_ref, object_size_bits);
-    status = invokeUntyped_Retype(
+
+    /* invokeUntyped_Retype contains a preemptionPoint and it's possible that
+     * it will return EXCEPTION_PREEMPTION. */
+    while (invokeUntyped_Retype(
         src,
         reset,
         (void *) free_ref,
@@ -241,8 +244,7 @@ untyped_retype_wrapper(cte_t *src, cte_t *dest, object_t type,
             0,
             1
         },
-        device_memory);
-    assert(status == EXCEPTION_NONE);
+        device_memory) != EXCEPTION_NONE);
 
     return true;
 }

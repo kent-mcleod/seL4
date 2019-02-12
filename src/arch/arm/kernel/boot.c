@@ -268,8 +268,6 @@ init_cpu(void)
     /* Export selected CPU features for access by PL0 */
     armv_init_user_access();
 
-    initTimer();
-
     return true;
 }
 
@@ -465,6 +463,10 @@ try_init_kernel(
 
     /* Done last to preserve ndks_boot link. */
     provide_cslot_to_root_cnode(&ndks_boot.root_cnode, seL4_CapInitThreadCNode);
+
+    /* Initialising timer last to avoid unnecessary interrupts.
+     * This is necessary as untyped_retype_wrapper calls preemptionPoint. */
+    initTimer();
 
     /* make everything written by the kernel visible to userland. Cleaning to PoC is not
      * strictly neccessary, but performance is not critical here so clean and invalidate
