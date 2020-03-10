@@ -80,6 +80,12 @@ void sendSignal(notification_t *ntfnPtr, word_t badge)
                 MCS_DO_IF_SC(tcb, ntfnPtr, {
                     possibleSwitchTo(tcb);
                 })
+#ifdef CONFIG_KERNEL_MCS
+                if (sc_sporadic(tcb->tcbSchedContext) && sc_active(tcb->tcbSchedContext)) {
+                    assert(tcb->tcbSchedContext != NODE_STATE(ksCurSC));
+                    refill_unblock_check(tcb->tcbSchedContext);
+                }
+#endif
 #ifdef CONFIG_VTX
             } else if (thread_state_ptr_get_tsType(&tcb->tcbState) == ThreadState_RunningVM) {
 #ifdef ENABLE_SMP_SUPPORT
@@ -95,6 +101,16 @@ void sendSignal(notification_t *ntfnPtr, word_t badge)
                     MCS_DO_IF_SC(tcb, ntfnPtr, {
                         possibleSwitchTo(tcb);
                     })
+#ifdef CONFIG_KERNEL_MCS
+                    if (tcb->tcbSchedContext != NULL && sc_active(tcb->tcbSchedContext)) {
+                        sched_context_t *sc = SC_PTR(notification_ptr_get_ntfnSchedContext(ntfnPtr));
+                        if (tcb->tcbSchedContext == sc && sc_sporadic(sc)) {
+                            /* Only unblock if the SC was donated from the
+                             * notification */
+                            refill_unblock_check(tcb->tcbSchedContext);
+                        }
+                    }
+#endif
                 }
 #endif /* CONFIG_VTX */
             } else {
@@ -136,6 +152,13 @@ void sendSignal(notification_t *ntfnPtr, word_t badge)
         MCS_DO_IF_SC(dest, ntfnPtr, {
             possibleSwitchTo(dest);
         })
+
+#ifdef CONFIG_KERNEL_MCS
+        if (sc_sporadic(dest->tcbSchedContext) && sc_active(dest->tcbSchedContext)) {
+            assert(dest->tcbSchedContext != NODE_STATE(ksCurSC));
+            refill_unblock_check(dest->tcbSchedContext);
+        }
+#endif
         break;
     }
 
@@ -211,6 +234,10 @@ void cancelAllSignals(notification_t *ntfnPtr)
         for (; thread; thread = thread->tcbEPNext) {
             setThreadState(thread, ThreadState_Restart);
 #ifdef CONFIG_KERNEL_MCS
+            if (sc_sporadic(thread->tcbSchedContext)) {
+                assert(thread->tcbSchedContext != NODE_STATE(ksCurSC));
+                refill_unblock_check(thread->tcbSchedContext);
+            }
             possibleSwitchTo(thread);
 #else
             SCHED_ENQUEUE(thread);
@@ -251,6 +278,14 @@ void completeSignal(notification_t *ntfnPtr, tcb_t *tcb)
         notification_ptr_set_state(ntfnPtr, NtfnState_Idle);
 #ifdef CONFIG_KERNEL_MCS
         maybeDonateSchedContext(tcb, ntfnPtr);
+        if (sc_sporadic(tcb->tcbSchedContext) && sc_active(tcb->tcbSchedContext)) {
+            sched_context_t *sc = SC_PTR(notification_ptr_get_ntfnSchedContext(ntfnPtr));
+            if (tcb->tcbSchedContext == sc) {
+                /* Only unblock if the SC was donated from the
+                 * notification */
+                refill_unblock_check(tcb->tcbSchedContext);
+            }
+        }
 #endif
     } else {
         fail("tried to complete signal with inactive notification object");
