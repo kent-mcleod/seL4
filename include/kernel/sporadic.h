@@ -144,6 +144,25 @@ static inline bool_t sc_released(sched_context_t *sc)
     }
 }
 
+/*
+ * Return true if a SC's available refills should be delayed at the
+ * point the associated thread becomes runnable (sporadic server).
+ */
+static inline bool_t sc_sporadic(sched_context_t *sc)
+{
+    return sc != NULL && sc->scSporadic;
+}
+
+/*
+ * Return true if a SC's available refills should be delayed at the
+ * point the associated thread becomes the current thread (constant
+ * bandwidth).
+ */
+static inline bool_t sc_constant_bandwidth(sched_context_t *sc)
+{
+    return !sc->scSporadic;
+}
+
 /* Create a new refill in a non-active sc */
 #ifdef ENABLE_SMP_SUPPORT
 void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period, word_t core);
@@ -164,14 +183,6 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
  * @param usage the amount of time to charge.
  */
 void refill_budget_check(ticks_t used);
-
-/*
- * Charge a the current scheduling context `used` amount from its
- * current refill. This will split the refill, leaving whatever is
- * left over at the head of the refill. This is only called when charging
- * `used` will not deplete the head refill.
- */
-void refill_split_check(ticks_t used);
 
 /*
  * This is called when a thread is eligible to start running: it
