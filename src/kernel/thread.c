@@ -91,10 +91,6 @@ void restart(tcb_t *target)
         cancelIPC(target);
 #ifdef CONFIG_KERNEL_MCS
         setThreadState(target, ThreadState_Restart);
-        if (sc_sporadic(target->tcbSchedContext) && sc_active(target->tcbSchedContext)
-            && target->tcbSchedContext != NODE_STATE(ksCurSC)) {
-            refill_unblock_check(target->tcbSchedContext);
-        }
         schedContext_resume(target->tcbSchedContext);
         if (isSchedulable(target)) {
             possibleSwitchTo(target);
@@ -141,11 +137,6 @@ void doReplyTransfer(tcb_t *sender, tcb_t *receiver, cte_t *slot, bool_t grant)
     reply_remove(reply, receiver);
     assert(thread_state_get_replyObject(receiver->tcbState) == REPLY_REF(0));
     assert(reply->replyTCB == NULL);
-
-    if (sc_sporadic(receiver->tcbSchedContext) && sc_active(receiver->tcbSchedContext)
-        && receiver->tcbSchedContext != NODE_STATE_ON_CORE(ksCurSC, receiver->tcbSchedContext->scCore)) {
-        refill_unblock_check(receiver->tcbSchedContext);
-    }
 #else
     assert(thread_state_get_tsType(receiver->tcbState) ==
            ThreadState_BlockedOnReply);
@@ -534,6 +525,10 @@ void possibleSwitchTo(tcb_t *target)
 {
 #ifdef CONFIG_KERNEL_MCS
     if (target->tcbSchedContext != NULL && !thread_state_get_tcbInReleaseQueue(target->tcbState)) {
+        if (sc_sporadic(target->tcbSchedContext) && sc_active(target->tcbSchedContext)
+            && target->tcbSchedContext != NODE_STATE_ON_CORE(ksCurSC, target->tcbSchedContext->scCore)) {
+            refill_unblock_check(target->tcbSchedContext);
+        }
 #endif
         if (ksCurDomain != target->tcbDomain
             SMP_COND_STATEMENT( || target->tcbAffinity != getCurrentCPUIndex())) {

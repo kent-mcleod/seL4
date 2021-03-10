@@ -286,11 +286,11 @@ void schedContext_bindTCB(sched_context_t *sc, tcb_t *tcb)
 
     SMP_COND_STATEMENT(migrateTCB(tcb, sc->scCore));
 
-    if (sc_sporadic(sc) && sc_active(sc)) {
-        refill_unblock_check(sc);
-    }
     schedContext_resume(sc);
     if (isSchedulable(tcb)) {
+        if (sc_sporadic(sc) && sc_active(sc)) {
+            refill_unblock_check(sc);
+        }
         SCHED_ENQUEUE(tcb);
         rescheduleRequired();
         // TODO -- at some stage we should take this call out of any TCB invocations that

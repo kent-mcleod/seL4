@@ -103,9 +103,6 @@ void sendIPC(bool_t blocking, bool_t do_call, word_t badge,
         assert(dest->tcbSchedContext == NULL || refill_sufficient(dest->tcbSchedContext, 0));
         assert(dest->tcbSchedContext == NULL || refill_ready(dest->tcbSchedContext));
         setThreadState(dest, ThreadState_Running);
-        if (sc_sporadic(dest->tcbSchedContext) && dest->tcbSchedContext != NODE_STATE(ksCurSC)) {
-            refill_unblock_check(dest->tcbSchedContext);
-        }
         possibleSwitchTo(dest);
 #else
         bool_t replyCanGrant = thread_state_ptr_get_blockingIPCCanGrant(&dest->tcbState);;
@@ -236,17 +233,17 @@ void receiveIPC(tcb_t *thread, cap_t cap, bool_t isBlocking)
             do_call = thread_state_ptr_get_blockingIPCIsCall(&sender->tcbState);
 
 #ifdef CONFIG_KERNEL_MCS
-            if (sc_sporadic(sender->tcbSchedContext)) {
-                assert(sender->tcbSchedContext != NODE_STATE(ksCurSC));
-                refill_unblock_check(sender->tcbSchedContext);
-            }
-
             if (do_call ||
                 seL4_Fault_get_seL4_FaultType(sender->tcbFault) != seL4_Fault_NullFault) {
                 if ((canGrant || canGrantReply) && replyPtr != NULL) {
                     bool_t canDonate = sender->tcbSchedContext != NULL
                                        && seL4_Fault_get_seL4_FaultType(sender->tcbFault) != seL4_Fault_Timeout;
                     reply_push(sender, thread, replyPtr, canDonate);
+                    // If the SC has been donated to the current thread (in a reply_recv, send_recv scenario) then
+                    // we may need to perform refill_unblock_check if the SC is becoming activated.
+                    if (thread->tcbSchedContext != NODE_STATE(ksCurSC) &&  sc_sporadic(thread->tcbSchedContext) ) {
+                        refill_unblock_check(thread->tcbSchedContext);
+                    }
                 } else {
                     setThreadState(sender, ThreadState_Inactive);
                 }
@@ -393,10 +390,6 @@ void cancelAllIPC(endpoint_t *epptr)
             }
             if (seL4_Fault_get_seL4_FaultType(thread->tcbFault) == seL4_Fault_NullFault) {
                 setThreadState(thread, ThreadState_Restart);
-                if (sc_sporadic(thread->tcbSchedContext)) {
-                    assert(thread->tcbSchedContext != NODE_STATE(ksCurSC));
-                    refill_unblock_check(thread->tcbSchedContext);
-                }
                 possibleSwitchTo(thread);
             } else {
                 setThreadState(thread, ThreadState_Inactive);
@@ -442,10 +435,6 @@ void cancelBadgedSends(endpoint_t *epptr, word_t badge)
                 if (seL4_Fault_get_seL4_FaultType(thread->tcbFault) ==
                     seL4_Fault_NullFault) {
                     setThreadState(thread, ThreadState_Restart);
-                    if (sc_sporadic(thread->tcbSchedContext)) {
-                        assert(thread->tcbSchedContext != NODE_STATE(ksCurSC));
-                        refill_unblock_check(thread->tcbSchedContext);
-                    }
                     possibleSwitchTo(thread);
                 } else {
                     setThreadState(thread, ThreadState_Inactive);
