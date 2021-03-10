@@ -216,6 +216,11 @@ void receiveSignal(tcb_t *thread, cap_t cap, bool_t isBlocking)
         notification_ptr_set_state(ntfnPtr, NtfnState_Idle);
 #ifdef CONFIG_KERNEL_MCS
         maybeDonateSchedContext(thread, ntfnPtr);
+        // If the SC has been donated to the current thread (in a reply_recv, send_recv scenario) then
+        // we may need to perform refill_unblock_check if the SC is becoming activated.
+        if (thread->tcbSchedContext != NODE_STATE(ksCurSC) &&  sc_sporadic(thread->tcbSchedContext) ) {
+            refill_unblock_check(thread->tcbSchedContext);
+        }
 #endif
         break;
     }
