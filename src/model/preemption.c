@@ -28,15 +28,14 @@ exception_t preemptionPoint(void)
      */
     if (ksWorkUnitsCompleted >= CONFIG_MAX_NUM_WORK_UNITS_PER_PREEMPTION) {
         ksWorkUnitsCompleted = 0;
+#ifdef CONFIG_KERNEL_MCS
+        updateTimestamp();
+        if (!(sc_active(NODE_STATE(ksCurSC)) && isSufficientAndSplittable()) || isCurDomainExpired()) {
+            return EXCEPTION_PREEMPTED;
+        } else
+#endif
         if (isIRQPending()) {
             return EXCEPTION_PREEMPTED;
-#ifdef CONFIG_KERNEL_MCS
-        } else {
-            updateTimestamp();
-            if (!(sc_active(NODE_STATE(ksCurSC)) && isSufficientAndSplittable()) || isCurDomainExpired()) {
-                return EXCEPTION_PREEMPTED;
-            }
-#endif
         }
     }
 
