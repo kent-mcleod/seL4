@@ -194,6 +194,12 @@ config_option(
 )
 mark_as_advanced(KernelAArch64SErrorIgnore)
 
+config_option(
+    KernelAllowSMCCalls ALLOW_SMC_CALLS "Allow virtualized guests to make SMC calls"
+    DEFAULT OFF
+    DEPENDS "KernelArmHypervisorSupport"
+)
+
 if(KernelAArch32FPUEnableContextSwitch OR KernelSel4ArchAarch64)
     set(KernelHaveFPU ON)
 endif()
@@ -239,6 +245,7 @@ add_sources(
         object/iospace.c
         object/vcpu.c
         object/smmu.c
+        object/smc.c
         smp/ipi.c
 )
 
