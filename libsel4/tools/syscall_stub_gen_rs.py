@@ -287,7 +287,6 @@ def generate_stub(arch, wordsize, interface_name, method_name, method_id, input_
     #   {
     #
     result.append("#[inline(always)]")
-    result.append("#[macros::derive_test_wrapper]")
     result.append("pub unsafe fn %s_%s(%s) -> %s" % (interface_name, method_name,
                                                      generate_param_list(input_params, output_params), return_type))
     result.append("{")
@@ -336,13 +335,13 @@ def generate_stub(arch, wordsize, interface_name, method_name, method_id, input_
     #   ...
     #
     if max(num_mrs, len(input_expressions)) > 0:
-        result.append("\t/* Marshal and initialise parameters. */")
+        result.append("\t/* Marshal and initialize parameters. */")
         # Initialise in-register parameters
         for i in range(num_mrs):
             if i < len(input_expressions):
                 result.append("\tmr%d = %s as seL4_Word;" % (i, input_expressions[i]))
             else:
-                result.append("\tmr%d = 0 as seL4_Word;" % i)
+                result.append("\tmr%d = 0;" % i)
         # Initialise buffered parameters
         for i in range(num_mrs, len(input_expressions)):
             expression = translate_expr(input_expressions[i])
@@ -378,6 +377,8 @@ def generate_stub(arch, wordsize, interface_name, method_name, method_id, input_
             result.append("\t\tseL4_SetMR(%d, mr%d);" % (i, i))
         if returning_struct:
             result.append("\t\treturn result;")
+        else:
+            result.append("\t\terror.into()")
         result.append("\t}")
         result.append("")
 
@@ -488,7 +489,6 @@ def generate_stub_file(arch, wordsize, input_files, output_file, use_only_ipc_bu
         result.append(generate_stub(arch, wordsize, interface_name, method_name,
                                     method_id, inputs, outputs, structs, use_only_ipc_buffer, comment, mcs))
 
-    result.append("")
 
     # Write the output
     output = open(output_file, "w")
