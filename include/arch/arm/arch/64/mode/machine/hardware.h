@@ -11,6 +11,19 @@
 
 #define PAGE_BITS seL4_PageBits
 
+/* Extract the n-level PT index from a virtual address.
+ * There are either 3 or 4 page table levels depending on whether the address range
+ * being translated is 48bits, 44 bits or 40 bits.
+ */
+#ifdef AARCH64_VSPACE_S2_START_L1
+#define PT_LEVELS 3
+#else
+#define PT_LEVELS 4
+#endif
+#define GET_PT_INDEX(addr, n)  (((addr) >> (((PT_INDEX_BITS) * (((PT_LEVELS) - 1) - (n))) + seL4_PageBits)) & MASK(PT_INDEX_BITS))
+#define GET_LVL_PGSIZE_BITS(n) (((PT_INDEX_BITS) * (((PT_LEVELS) - 1) - (n))) + seL4_PageBits)
+#define GET_LVL_PGSIZE(n)      BIT(GET_LVL_PGSIZE_BITS((n)))
+
 /* Control register fields */
 #define CONTROL_M         0  /* MMU enable */
 #define CONTROL_A         1  /* Alignment check enable */
