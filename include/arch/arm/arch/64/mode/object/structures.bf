@@ -356,7 +356,15 @@ tagged_union pde pde_type {
     tag pde_small                   3
 }
 
-block pte {
+block pte_table {
+    padding                         16
+    field_high pt_base_address      36
+    padding                         10
+    field pte_type                  2
+}
+
+
+block pte_page {
     padding                         9
     field UXN                       1
     padding                         6
@@ -371,8 +379,14 @@ block pte {
     padding                         1
     field AttrIndx                  3
 #endif
-    field reserved                  2 -- must be 0b11
+    field pte_type                  2
 }
+
+tagged_union pte pte_type {
+    tag pte_table                   3
+    tag pte_page                    1
+}
+
 
 block ttbr {
     field asid                      16
