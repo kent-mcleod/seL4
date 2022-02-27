@@ -11,6 +11,28 @@
 
 #define PAGE_BITS seL4_PageBits
 
+/* Extract the n-level PT index from a virtual address.
+ * There are either 3 or 4 page table levels depending on whether the address range
+ * being translated is 48bits, 44 bits or 40 bits.
+ */
+#ifdef AARCH64_VSPACE_S2_START_L1
+#define UPT_LEVELS 3
+#define ULVL_FRM_ARM_PT_LVL(n) ((n)-1)
+#else
+#define UPT_LEVELS 4
+#define ULVL_FRM_ARM_PT_LVL(n) (n)
+#endif
+#define KPT_LEVELS 4
+#define KLVL_FRM_ARM_PT_LVL(n) (n)
+#define GET_KPT_INDEX(addr, n)  (((addr) >> (((PT_INDEX_BITS) * (((KPT_LEVELS) - 1) - (n))) + seL4_PageBits)) & MASK(PT_INDEX_BITS))
+#define GET_KLVL_PGSIZE_BITS(n) (((PT_INDEX_BITS) * (((KPT_LEVELS) - 1) - (n))) + seL4_PageBits)
+#define GET_KLVL_PGSIZE(n)      BIT(GET_KLVL_PGSIZE_BITS((n)))
+
+#define GET_UPT_INDEX(addr, n)  (((addr) >> (((PT_INDEX_BITS) * (((UPT_LEVELS) - 1) - (n))) + seL4_PageBits)) & MASK((n == 0 ? seL4_VSpaceIndexBits : PT_INDEX_BITS)))
+#define GET_ULVL_PGSIZE_BITS(n) (((PT_INDEX_BITS) * (((UPT_LEVELS) - 1) - (n))) + seL4_PageBits)
+#define GET_ULVL_PGSIZE(n)      BIT(GET_ULVL_PGSIZE_BITS((n)))
+
+
 /* Control register fields */
 #define CONTROL_M         0  /* MMU enable */
 #define CONTROL_A         1  /* Alignment check enable */
