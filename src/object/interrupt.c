@@ -220,6 +220,14 @@ void handleInterrupt(irq_t irq)
 #ifdef CONFIG_KERNEL_MCS
         ackDeadlineIRQ();
         NODE_STATE(ksReprogram) = true;
+#ifdef CONFIG_IRQ_REPORTING
+        if (NODE_STATE(ksCurDeadline) < NODE_STATE(ksCurTime)) {
+            printf("Timer IRQ late: %"PRIu64" ticks.\n", NODE_STATE(ksCurTime) - NODE_STATE(ksCurDeadline));
+        }
+        if (NODE_STATE(ksCurDeadline) > NODE_STATE(ksCurTime)) {
+            printf("Timer IRQ early: %"PRIu64" ticks.\n", NODE_STATE(ksCurDeadline) - NODE_STATE(ksCurTime));
+        }
+#endif
 #else
         timerTick();
         resetTimer();

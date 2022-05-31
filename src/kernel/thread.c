@@ -585,6 +585,9 @@ void setNextInterrupt(void)
         next_interrupt = MIN(refill_head(NODE_STATE(ksReleaseHead)->tcbSchedContext)->rTime, next_interrupt);
     }
 
+#ifdef CONFIG_DEBUG_BUILD
+    NODE_STATE(ksCurDeadline) = next_interrupt;
+#endif
     setDeadline(next_interrupt - getTimerPrecision());
 }
 
