@@ -22,6 +22,7 @@
 void ipiStallCoreCallback(bool_t irqPath)
 {
     if (clh_is_self_in_queue() && !irqPath) {
+        assert(0);
         /* The current thread is running as we would replace this thread with an idle thread
          *
          * The instruction should be re-executed if we are in kernel to handle syscalls.
@@ -82,6 +83,8 @@ void ipiStallCoreCallback(bool_t irqPath)
 void handleIPI(irq_t irq, bool_t irqPath)
 {
     if (IRQT_TO_IRQ(irq) == irq_remote_call_ipi) {
+        // We aren't allowed to hold the kernel lock at this stage.
+        assert(!clh_is_self_in_queue());
         handleRemoteCall(remoteCall, get_ipi_arg(0), get_ipi_arg(1), get_ipi_arg(2), irqPath);
     } else if (IRQT_TO_IRQ(irq) == irq_reschedule_ipi) {
         rescheduleRequired();

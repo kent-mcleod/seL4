@@ -32,6 +32,8 @@ static void handleRemoteCall(IpiModeRemoteCall_t call, word_t arg0,
     /* we gets spurious irq_remote_call_ipi calls, e.g. when handling IPI
      * in lock while hardware IPI is pending. Guard against spurious IPIs! */
     if (clh_is_ipi_pending(getCurrentCPUIndex())) {
+        assert(!clh_is_self_in_queue());
+
         switch ((IpiRemoteCall_t)call) {
         case IpiRemoteCall_Stall:
             ipiStallCoreCallback(irqPath);
