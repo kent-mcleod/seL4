@@ -115,6 +115,18 @@ block vcpu_cap {
 }
 #endif
 
+#if CONFIG_MAX_NUM_NODES == 1
+
+block sgi_signal_cap {
+    padding        32
+    field capSGIIRQMask     16
+    field capSGITargetMask  16
+
+    field capType  5
+    padding        59
+}
+
+#endif
 #ifdef CONFIG_ARM_SMMU
 
 block sid_control_cap {
@@ -190,6 +202,10 @@ tagged_union cap capType {
     tag cb_control_cap              21
     tag cb_cap                      23
 #endif
+#if CONFIG_MAX_NUM_NODES == 1
+    tag sgi_signal_cap              25
+#endif
+
 }
 
 ---- Arch-independent object types
