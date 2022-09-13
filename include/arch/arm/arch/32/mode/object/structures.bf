@@ -102,6 +102,20 @@ block vcpu_cap {
 }
 #endif
 
+#if CONFIG_MAX_NUM_NODES == 1
+
+block sgi_signal_cap {
+    field capSGIIRQMask     16
+    field capSGITargetMask  16
+
+
+    padding        24
+    field capType  8
+}
+
+#endif
+
+
 #ifdef CONFIG_TK1_SMMU
 -- IO space caps
 -- each module has an engine that can be enabled
@@ -178,6 +192,9 @@ tagged_union cap capType {
 #ifdef CONFIG_TK1_SMMU
     tag io_space_cap            0x1f
     tag io_page_table_cap       0x2f
+#endif
+#if CONFIG_MAX_NUM_NODES == 1
+    tag sgi_signal_cap          0x3f
 #endif
 }
 

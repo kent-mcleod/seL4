@@ -278,6 +278,7 @@ def init_arch_types(wordsize):
             CapType("seL4_ARM_VCPU", wordsize),
             CapType("seL4_ARM_IOSpace", wordsize),
             CapType("seL4_ARM_IOPageTable", wordsize),
+            CapType("seL4_ARM_SGI_Signal", wordsize),
             StructType("seL4_UserContext", wordsize * 19, wordsize),
         ] + arm_smmu,
 
@@ -294,6 +295,7 @@ def init_arch_types(wordsize):
             CapType("seL4_ARM_VCPU", wordsize),
             CapType("seL4_ARM_IOSpace", wordsize),
             CapType("seL4_ARM_IOPageTable", wordsize),
+            CapType("seL4_ARM_SGI_Signal", wordsize),
             StructType("seL4_UserContext", wordsize * 36, wordsize),
         ] + arm_smmu,
 
@@ -307,6 +309,7 @@ def init_arch_types(wordsize):
             CapType("seL4_ARM_VCPU", wordsize),
             CapType("seL4_ARM_IOSpace", wordsize),
             CapType("seL4_ARM_IOPageTable", wordsize),
+            CapType("seL4_ARM_SGI_Signal", wordsize),
             StructType("seL4_UserContext", wordsize * 19, wordsize),
         ] + arm_smmu,
 
