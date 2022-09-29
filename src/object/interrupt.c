@@ -149,7 +149,12 @@ void invokeIRQHandler_AckIRQ(irq_t irq)
         return;
     }
 #endif
+
+#ifdef CONFIG_ARM_GIC_V3_SUPPORT
+    deactivateInterrupt(irq);
+#else
     maskInterrupt(false, irq);
+#endif
 #endif
 }
 
@@ -198,6 +203,9 @@ void handleInterrupt(irq_t irq)
         printf("Received IRQ %d, which is above the platforms maxIRQ of %d\n", (int)IRQT_TO_IRQ(irq), (int)maxIRQ);
         maskInterrupt(true, irq);
         ackInterrupt(irq);
+#ifdef CONFIG_ARM_GIC_V3_SUPPORT
+        deactivateInterrupt(irq);
+#endif
         return;
     }
 
@@ -217,9 +225,10 @@ void handleInterrupt(irq_t irq)
             printf("Undelivered IRQ: %d\n", (int)IRQT_TO_IRQ(irq));
 #endif
         }
-#ifndef CONFIG_ARCH_RISCV
+#if !defined(CONFIG_ARCH_RISCV) && !defined(CONFIG_ARM_GIC_V3_SUPPORT)
         maskInterrupt(true, irq);
 #endif
+
         break;
     }
 
@@ -263,6 +272,11 @@ void handleInterrupt(irq_t irq)
      * that for any interrupt reported by the platform specific code the generic
      * kernel code does report here that it is done with handling it. */
     ackInterrupt(irq);
+#ifdef CONFIG_ARM_GIC_V3_SUPPORT
+    if (intStateIRQTable[IRQT_TO_IDX(irq)] != IRQSignal) {
+        deactivateInterrupt(irq);
+    }
+#endif
 }
 
 bool_t isIRQActive(irq_t irq)
