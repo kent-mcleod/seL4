@@ -371,4 +371,19 @@
             </error>
         </method>
     </interface>
+    <interface name="seL4_ARM_SMC" manual_name="SMC" cap_description="Capability to allow threads to interact with SMC calls.">
+        <method id="ARMSMCCall" name="Call" manual_name="SMC Call" manual_label="smc_call">
+            <condition><config var="CONFIG_ALLOW_SMC_CALLS"/></condition>
+            <brief>
+                Tell the microkernel to make the real SMC call.
+            </brief>
+            <description>
+                <docref>See <autoref label="sec:read_write_registers"/></docref>
+            </description>
+            <param dir="in" name="smc_args" type="seL4_ARM_SMCContext"
+                description="The structure that has the provided arguments."/>
+            <param dir="out" name="smc_response" type="seL4_ARM_SMCContext"
+                description="The structure to capture the responses."/>
+        </method>
+    </interface>
 </api>
