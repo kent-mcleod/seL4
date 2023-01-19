@@ -106,6 +106,12 @@ BOOT_CODE static bool_t arch_init_freemem(p_region_t ui_p_reg,
         /* Reserve the ui_p_reg region still so it doesn't get turned into device UT. */
         reserve_region(ui_p_reg);
     }
+    // for (int i = 0; i < ARRAY_SIZE(reserved_p_regs); i++) {
+    //     region_t res_reg = paddr_to_pptr_reg(reserved_p_regs[i]);
+    //     printf("hii: %lx %lx\n", res_reg.start, res_reg.end);
+    //     reserved[index] = res_reg;
+    //     index++;
+    // }
 
     /* avail_p_regs comes from the auto-generated code */
     return init_freemem(ARRAY_SIZE(avail_p_regs), avail_p_regs,

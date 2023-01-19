@@ -24,7 +24,7 @@
  * +1 for user image.
  * +1 for each the MODE_RESERVED region, there might be none
  */
-#define NUM_RESERVED_REGIONS (3 + MODE_RESERVED)
+#define NUM_RESERVED_REGIONS (3 + MODE_RESERVED + 4)
 
 
 /* The maximum number of reserved regions is:

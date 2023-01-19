@@ -117,6 +117,18 @@ static const p_region_t BOOT_RODATA avail_p_regs[] = {
     {% endfor %}
 };
 
+/* PHYSICAL MEMORY */
+static const p_region_t BOOT_RODATA reserved_p_regs[] = {
+    {% for reg in reserved %}
+    /* {{ reg.owner.path }} */
+    {
+        .start = {{ "0x{:x}".format(reg.base) }},
+        .end   = {{ "0x{:x}".format(reg.base + reg.size) }}
+    },
+    {% endfor %}
+};
+
+
 #endif /* !__ASSEMBLER__ */
 
 '''
@@ -178,7 +190,7 @@ def get_interrupts(tree: FdtParser, hw_yaml: HardwareYaml) -> List:
 
 def create_c_header_file(config, kernel_irqs: List, kernel_macros: Dict,
                          kernel_regions: List, physBase: int, physical_memory,
-                         outputStream):
+                         outputStream, reserved):
 
     jinja_env = jinja2.Environment(loader=jinja2.BaseLoader, trim_blocks=True,
                                    lstrip_blocks=True)
@@ -192,7 +204,8 @@ def create_c_header_file(config, kernel_irqs: List, kernel_macros: Dict,
             'kernel_macros': kernel_macros,
             'kernel_regions': kernel_regions,
             'physBase': physBase,
-            'physical_memory': physical_memory})
+            'physical_memory': physical_memory,
+            'reserved': reserved})
     data = template.render(template_args)
 
     with outputStream:
@@ -213,7 +226,8 @@ def run(tree: FdtParser, hw_yaml: HardwareYaml, config: Config, args: argparse.N
         kernel_regions,
         physBase,
         physical_memory,
-        args.header_out)
+        args.header_out,
+        list(reserved))
 
 
 def add_args(parser):

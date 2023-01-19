@@ -172,6 +172,7 @@ BOOT_CODE static void dist_init(void)
 
     /* Route all global IRQs to this CPU */
     affinity = mpidr_to_gic_affinity();
+    printf("Affinity: %llx\n", affinity);
     for (i = SPI_START; i < nr_lines; i++) {
         gic_dist->iroutern[i] = affinity;
     }

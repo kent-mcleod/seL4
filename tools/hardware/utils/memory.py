@@ -87,7 +87,7 @@ def get_physical_memory(tree: FdtParser, config: Config) -> List[Region]:
     ''' returns a list of regions representing physical memory as used by the kernel '''
     regions = merge_memory_regions(get_memory_regions(tree))
     reserved = parse_reserved_regions(tree.get_path('/reserved-memory'))
-    regions = reserve_regions(regions, reserved)
+    regions = reserve_regions(regions, reserved.copy())
     regions, extra_reserved, physBase = config.align_memory(regions)
 
     return regions, reserved.union(extra_reserved), physBase

@@ -60,8 +60,9 @@ class ARMConfig(Config):
         extra_reserved = set()
 
         new = ret[0].align_base(self.get_kernel_phys_align())
-        resv = Region(ret[0].base, new.base - ret[0].base)
-        extra_reserved.add(resv)
+        if (new.base - ret[0].base) > 0:
+            resv = Region(ret[0].base, new.base - ret[0].base)
+            extra_reserved.add(resv)
         ret[0] = new
 
         physBase = ret[0].base
