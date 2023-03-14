@@ -117,6 +117,12 @@ static const p_region_t BOOT_RODATA avail_p_regs[] = {
     {% endfor %}
 };
 
+static const int BOOT_RODATA reserved_irqs[] = {
+    {% for irq in reserved_irqs %}
+    {{irq}},
+    {% endfor %}
+};
+
 #endif /* !__ASSEMBLER__ */
 
 '''
@@ -178,7 +184,7 @@ def get_interrupts(tree: FdtParser, hw_yaml: HardwareYaml) -> List:
 
 def create_c_header_file(config, kernel_irqs: List, kernel_macros: Dict,
                          kernel_regions: List, physBase: int, physical_memory,
-                         outputStream):
+                         outputStream, reserved_irqs=[]):
 
     jinja_env = jinja2.Environment(loader=jinja2.BaseLoader, trim_blocks=True,
                                    lstrip_blocks=True)
@@ -192,7 +198,8 @@ def create_c_header_file(config, kernel_irqs: List, kernel_macros: Dict,
             'kernel_macros': kernel_macros,
             'kernel_regions': kernel_regions,
             'physBase': physBase,
-            'physical_memory': physical_memory})
+            'physical_memory': physical_memory,
+            'reserved_irqs': reserved_irqs})
     data = template.render(template_args)
 
     with outputStream:
@@ -205,6 +212,7 @@ def run(tree: FdtParser, hw_yaml: HardwareYaml, config: Config, args: argparse.N
 
     physical_memory, reserved, physBase = hardware.utils.memory.get_physical_memory(tree, config)
     kernel_regions, kernel_macros = get_kernel_devices(tree, hw_yaml)
+    reserved_irqs = tree.get_reserved_irqs()
 
     create_c_header_file(
         config,
@@ -213,7 +221,8 @@ def run(tree: FdtParser, hw_yaml: HardwareYaml, config: Config, args: argparse.N
         kernel_regions,
         physBase,
         physical_memory,
-        args.header_out)
+        args.header_out,
+        reserved_irqs)
 
 
 def add_args(parser):

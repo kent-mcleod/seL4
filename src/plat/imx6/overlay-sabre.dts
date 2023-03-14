@@ -15,6 +15,7 @@
 		    &{/soc/interrupt-controller@a01000},
 		    &{/soc/l2-cache@a02000},
 		    &{/soc/timer@a00600};
+		seL4,reserved-irqs = <24 25 26>;
 	};
 	/* Upstream bug: the memory node doesn't have a device_type,
 	 * but there is an empty memory node with a device_type. */

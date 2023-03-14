@@ -147,6 +147,9 @@ BOOT_CODE static void init_irqs(cap_t root_cnode_cap)
     setIRQState(IRQIPI, CORE_IRQ_TO_IRQT(getCurrentCPUIndex(), irq_reschedule_ipi));
 #endif
 
+    for (i = 0; i < ARRAY_SIZE(reserved_irqs); i++) {
+        setIRQState(IRQReserved, CORE_IRQ_TO_IRQT(0, reserved_irqs[i]));
+    }
     /* provide the IRQ control cap */
     write_slot(SLOT_PTR(pptr_of_cap(root_cnode_cap), seL4_CapIRQControl), cap_irq_control_cap_new());
 }
