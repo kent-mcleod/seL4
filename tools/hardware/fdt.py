@@ -76,6 +76,18 @@ class FdtParser:
     def get_kernel_devices(self) -> List[WrappedNode]:
         return self.get_devices_list('seL4,kernel-devices')
 
+    def get_spi_irqs(self) -> List[int]:
+        ''' Returns a list of reserved irqs '''
+        prop = 'seL4,spi-irqs'
+        chosen = self.get_path('/chosen')
+        if not chosen.has_prop(prop):
+            return []
+
+        ret = []
+        irqs = chosen.get_prop(prop)
+        return irqs.words
+
+
     def get_elfloader_devices(self) -> List[WrappedNode]:
         return self.get_devices_list('seL4,elfloader-devices')
 

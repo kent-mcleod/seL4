@@ -40,23 +40,14 @@ word_t active_irq[CONFIG_MAX_NUM_NODES];
  * for PPI are read only and return only the current processor as the target.
  * If this doesn't lead to a valid ID, we emit a warning and default to core 0.
  */
-BOOT_CODE static uint8_t infer_cpu_gic_id(int nirqs)
+BOOT_CODE static uint8_t infer_cpu_gic_id(void)
 {
-    word_t i;
-    uint32_t target = 0;
-    for (i = 0; i < nirqs; i += 4) {
-        target = gic_dist->targets[i >> 2];
-        target |= target >> 16;
-        target |= target >> 8;
-        if (target) {
-            break;
-        }
-    }
+    uint32_t target = gic_dist->targets[0] & 0xff;
     if (!target) {
         printf("Warning: Could not infer GIC interrupt target ID, assuming 0.\n");
         target = BIT(0);
     }
-    return target & 0xff;
+    return target;
 }
 
 BOOT_CODE static void dist_init(void)
@@ -174,13 +165,15 @@ void ipi_send_target(irq_t irq, word_t cpuTargetList)
     gic_dist->sgi_control = (cpuTargetList << (GICD_SGIR_CPUTARGETLIST_SHIFT)) | (IRQT_TO_IRQ(
                                                                                       irq) << GICD_SGIR_SGIINTID_SHIFT);
 }
+#endif /* ENABLE_SMP_SUPPORT */
 
 /*
  * Set CPU target for the interrupt if it's not a PPI
  */
 void setIRQTarget(irq_t irq, seL4_Word target)
 {
-    uint8_t targetList = 1 << target;
+
+    uint8_t targetList = infer_cpu_gic_id();
     uint8_t *targets = (void *)(gic_dist->targets);
     word_t hwIRQ = IRQT_TO_IRQ(irq);
 
@@ -191,7 +184,6 @@ void setIRQTarget(irq_t irq, seL4_Word target)
     }
     targets[hwIRQ] = targetList;
 }
-#endif /* ENABLE_SMP_SUPPORT */
 
 #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
 

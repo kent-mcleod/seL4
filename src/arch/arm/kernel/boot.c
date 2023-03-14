@@ -120,9 +120,21 @@ BOOT_CODE static void init_irqs(cap_t root_cnode_cap)
 {
     unsigned i;
 
-    for (i = 0; i <= maxIRQ ; i++) {
+    for (i = 0; i <= NUM_PPI ; i++) {
         setIRQState(IRQInactive, CORE_IRQ_TO_IRQT(0, i));
     }
+
+    for (i = SPI_START; i < maxIRQ ; i++) {
+        intStateIRQTable[IRQT_TO_IDX(CORE_IRQ_TO_IRQT(0, i))] = IRQReserved;
+    }
+
+
+    for (i = 0; i < ARRAY_SIZE(spi_irqs); i++) {
+        setIRQTarget(spi_irqs[i], CURRENT_CPU_INDEX());
+        setIRQState(IRQInactive, CORE_IRQ_TO_IRQT(0, spi_irqs[i]));
+    }
+
+
     setIRQState(IRQTimer, CORE_IRQ_TO_IRQT(0, KERNEL_TIMER_IRQ));
 #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
     setIRQState(IRQReserved, CORE_IRQ_TO_IRQT(0, INTERRUPT_VGIC_MAINTENANCE));
