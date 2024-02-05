@@ -9,7 +9,9 @@
 		seL4,elfloader-devices =
 		    &{/pl011@9000000},
 		    &{/psci},
-		    &{/timer};
+		    &{/timer},
+		    &{/intc@8000000};
+
 		seL4,kernel-devices =
             &{/pl011@9000000},
 		    &{/intc@8000000},

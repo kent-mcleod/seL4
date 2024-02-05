@@ -61,50 +61,13 @@ BOOT_CODE static uint8_t infer_cpu_gic_id(int nirqs)
 
 BOOT_CODE static void dist_init(void)
 {
-    word_t i;
-    int nirqs = 32 * ((gic_dist->ic_type & 0x1f) + 1);
-    gic_dist->enable = 0;
-
-    for (i = 0; i < nirqs; i += 32) {
-        /* disable */
-        gic_dist->enable_clr[i >> 5] = IRQ_SET_ALL;
-        /* clear pending */
-        gic_dist->pending_clr[i >> 5] = IRQ_SET_ALL;
+    /* Check that the distributor is enabled */
+    uint32_t ctlr = gic_dist->enable;
+    const uint32_t ctlr_mask = BIT(0);
+    if ((ctlr & ctlr_mask) != ctlr_mask) {
+        printf("GICv2: GICD_CTLR 0x%x: GICD_CTLR not initialized\n", ctlr);
+        halt();
     }
-
-    /* reset interrupts priority */
-    for (i = 32; i < nirqs; i += 4) {
-        if (config_set(CONFIG_ARM_HYPERVISOR_SUPPORT)) {
-            gic_dist->priority[i >> 2] = 0x80808080;
-        } else {
-            gic_dist->priority[i >> 2] = 0;
-        }
-    }
-
-    /*
-     * reset int target to current cpu
-     * We query which id that the GIC uses for us and use that.
-     */
-    uint8_t target = infer_cpu_gic_id(nirqs);
-    for (i = 0; i < nirqs; i += 4) {
-        gic_dist->targets[i >> 2] = TARGET_CPU_ALLINT(target);
-    }
-
-    /* level-triggered, 1-N */
-    for (i = 64; i < nirqs; i += 32) {
-        gic_dist->config[i >> 5] = 0x55555555;
-    }
-
-    /* group 0 for secure; group 1 for non-secure */
-    for (i = 0; i < nirqs; i += 32) {
-        if (config_set(CONFIG_ARM_HYPERVISOR_SUPPORT) && !config_set(CONFIG_PLAT_QEMU_ARM_VIRT)) {
-            gic_dist->security[i >> 5] = 0xffffffff;
-        } else {
-            gic_dist->security[i >> 5] = 0;
-        }
-    }
-    /* enable the int controller */
-    gic_dist->enable = 1;
 }
 
 BOOT_CODE static void cpu_iface_init(void)
