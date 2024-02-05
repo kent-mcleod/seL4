@@ -124,11 +124,6 @@ static uint32_t gicv3_do_wait_for_rwp(volatile uint32_t *ctlr_addr)
     return ret;
 }
 
-static void gicv3_dist_wait_for_rwp(void)
-{
-    gicv3_do_wait_for_rwp(&gic_dist->ctlr);
-}
-
 static void gicv3_redist_wait_for_rwp(void)
 {
     gicv3_do_wait_for_rwp(&gic_rdist_map[CURRENT_CPU_INDEX()]->ctlr);
@@ -149,45 +144,12 @@ static void gicv3_enable_sre(void)
 
 BOOT_CODE static void dist_init(void)
 {
-    word_t i;
-    uint32_t type;
-    unsigned int nr_lines;
-    uint64_t affinity;
-    uint32_t priority;
-
-    /* Disable GIC Distributor */
-    gic_dist->ctlr = 0;
-    gicv3_dist_wait_for_rwp();
-
-    type = gic_dist->typer;
-
-    nr_lines = GIC_REG_WIDTH * ((type & GICD_TYPE_LINESNR) + 1);
-
-    /* Assume level-triggered */
-    for (i = SPI_START; i < nr_lines; i += 16) {
-        gic_dist->icfgrn[(i / 16)] = 0;
-    }
-
-    /* Default priority for global interrupts */
-    priority = (GIC_PRI_IRQ << 24 | GIC_PRI_IRQ << 16 | GIC_PRI_IRQ << 8 |
-                GIC_PRI_IRQ);
-    for (i = SPI_START; i < nr_lines; i += 4) {
-        gic_dist->ipriorityrn[(i / 4)] = priority;
-    }
-    /* Disable and clear all global interrupts */
-    for (i = SPI_START; i < nr_lines; i += 32) {
-        gic_dist->icenablern[(i / 32)] = IRQ_SET_ALL;
-        gic_dist->icpendrn[(i / 32)] = IRQ_SET_ALL;
-    }
-
-    /* Turn on the distributor */
-    gic_dist->ctlr = GICD_CTL_ENABLE | GICD_CTLR_ARE_NS | GICD_CTLR_ENABLE_G1NS | GICD_CTLR_ENABLE_G0;
-    gicv3_dist_wait_for_rwp();
-
-    /* Route all global IRQs to this CPU */
-    affinity = mpidr_to_gic_affinity();
-    for (i = SPI_START; i < nr_lines; i++) {
-        gic_dist->iroutern[i - SPI_START] = affinity;
+    /* Check that the distributor is enabled */
+    uint32_t ctlr = gic_dist->ctlr;
+    const uint32_t ctlr_mask = GICD_CTLR_ARE_NS | GICD_CTLR_ENABLE_G1NS;
+    if ((ctlr & ctlr_mask) != ctlr_mask) {
+        printf("GICv3: GICD_CTLR 0x%x: GICD_CTLR not initialized\n", ctlr);
+        halt();
     }
 }
 

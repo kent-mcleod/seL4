@@ -9,7 +9,8 @@
         seL4,elfloader-devices =
             "serial1",
             &{/psci},
-            &{/timer};
+            &{/timer},
+            &{/interrupt-controller@38800000};
 
         seL4,kernel-devices =
             "serial1",
