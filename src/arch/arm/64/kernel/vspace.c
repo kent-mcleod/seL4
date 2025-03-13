@@ -807,115 +807,115 @@ static bool_t setVMRootForFlush(vspace_root_t *vspace, asid_t asid)
 }
 
 
-#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+// #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
 
-static inline asid_pool_t *getPoolPtr(asid_t asid)
-{
-    return armKSASIDTable[asid >> asidLowBits];
-}
+// static inline asid_pool_t *getPoolPtr(asid_t asid)
+// {
+//     return armKSASIDTable[asid >> asidLowBits];
+// }
 
-static inline asid_map_t getASIDMap(asid_pool_t *poolPtr, asid_t asid)
-{
-    assert(poolPtr != NULL);
-    return poolPtr->array[asid & MASK(asidLowBits)];
-}
+// static inline asid_map_t getASIDMap(asid_pool_t *poolPtr, asid_t asid)
+// {
+//     assert(poolPtr != NULL);
+//     return poolPtr->array[asid & MASK(asidLowBits)];
+// }
 
-static inline void setASIDMap(asid_pool_t *poolPtr, asid_t asid, asid_map_t asid_map)
-{
-    assert(poolPtr != NULL);
-    poolPtr->array[asid & MASK(asidLowBits)] = asid_map;
-}
+// static inline void setASIDMap(asid_pool_t *poolPtr, asid_t asid, asid_map_t asid_map)
+// {
+//     assert(poolPtr != NULL);
+//     poolPtr->array[asid & MASK(asidLowBits)] = asid_map;
+// }
 
-static void invalidateASID(asid_t asid)
-{
-    asid_pool_t *poolPtr;
-    asid_map_t asid_map;
+// static void invalidateASID(asid_t asid)
+// {
+//     asid_pool_t *poolPtr;
+//     asid_map_t asid_map;
 
-    poolPtr = getPoolPtr(asid);
-    asid_map = getASIDMap(poolPtr, asid);
-    assert(asid_map_get_type(asid_map) == asid_map_asid_map_vspace);
+//     poolPtr = getPoolPtr(asid);
+//     asid_map = getASIDMap(poolPtr, asid);
+//     assert(asid_map_get_type(asid_map) == asid_map_asid_map_vspace);
 
-    asid_map = asid_map_asid_map_vspace_set_stored_hw_vmid(asid_map, 0);
-    asid_map = asid_map_asid_map_vspace_set_stored_vmid_valid(asid_map, false);
+//     asid_map = asid_map_asid_map_vspace_set_stored_hw_vmid(asid_map, 0);
+//     asid_map = asid_map_asid_map_vspace_set_stored_vmid_valid(asid_map, false);
 
-    setASIDMap(poolPtr, asid, asid_map);
-}
+//     setASIDMap(poolPtr, asid, asid_map);
+// }
 
-static void storeHWASID(asid_t asid, hw_asid_t hw_asid)
-{
-    asid_pool_t *poolPtr;
-    asid_map_t asid_map;
+// static void storeHWASID(asid_t asid, hw_asid_t hw_asid)
+// {
+//     asid_pool_t *poolPtr;
+//     asid_map_t asid_map;
 
-    poolPtr = getPoolPtr(asid);
-    asid_map = getASIDMap(poolPtr, asid);
-    assert(asid_map_get_type(asid_map) == asid_map_asid_map_vspace);
+//     poolPtr = getPoolPtr(asid);
+//     asid_map = getASIDMap(poolPtr, asid);
+//     assert(asid_map_get_type(asid_map) == asid_map_asid_map_vspace);
 
-    asid_map = asid_map_asid_map_vspace_set_stored_hw_vmid(asid_map, hw_asid);
-    asid_map = asid_map_asid_map_vspace_set_stored_vmid_valid(asid_map, true);
+//     asid_map = asid_map_asid_map_vspace_set_stored_hw_vmid(asid_map, hw_asid);
+//     asid_map = asid_map_asid_map_vspace_set_stored_vmid_valid(asid_map, true);
 
-    setASIDMap(poolPtr, asid, asid_map);
-    armKSHWASIDTable[hw_asid] = asid;
-}
+//     setASIDMap(poolPtr, asid, asid_map);
+//     armKSHWASIDTable[hw_asid] = asid;
+// }
 
-static hw_asid_t findFreeHWASID(void)
-{
-    word_t hw_asid_offset;
-    hw_asid_t hw_asid;
+// static hw_asid_t findFreeHWASID(void)
+// {
+//     word_t hw_asid_offset;
+//     hw_asid_t hw_asid;
 
-    /* Find a free hardware ASID */
-    for (hw_asid_offset = 0;
-         hw_asid_offset <= (word_t)((hw_asid_t) - 1);
-         hw_asid_offset++) {
-        hw_asid = armKSNextASID + ((hw_asid_t)hw_asid_offset);
-        if (armKSHWASIDTable[hw_asid] == asidInvalid) {
-            return hw_asid;
-        }
-    }
+//     /* Find a free hardware ASID */
+//     for (hw_asid_offset = 0;
+//          hw_asid_offset <= (word_t)((hw_asid_t) - 1);
+//          hw_asid_offset++) {
+//         hw_asid = armKSNextASID + ((hw_asid_t)hw_asid_offset);
+//         if (armKSHWASIDTable[hw_asid] == asidInvalid) {
+//             return hw_asid;
+//         }
+//     }
 
-    hw_asid = armKSNextASID;
+//     hw_asid = armKSNextASID;
 
-    /* If we've scanned the table without finding a free ASID */
-    invalidateASID(armKSHWASIDTable[hw_asid]);
+//     /* If we've scanned the table without finding a free ASID */
+//     invalidateASID(armKSHWASIDTable[hw_asid]);
 
-    /* Flush TLB */
-    invalidateTranslationASID(hw_asid);
-    armKSHWASIDTable[hw_asid] = asidInvalid;
+//     /* Flush TLB */
+//     invalidateTranslationASID(hw_asid);
+//     armKSHWASIDTable[hw_asid] = asidInvalid;
 
-    /* Increment the NextASID index */
-    armKSNextASID++;
+//     /* Increment the NextASID index */
+//     armKSNextASID++;
 
-    return hw_asid;
-}
+//     return hw_asid;
+// }
 
-hw_asid_t getHWASID(asid_t asid)
-{
-    asid_map_t asid_map;
+// hw_asid_t getHWASID(asid_t asid)
+// {
+//     asid_map_t asid_map;
 
-    asid_map = findMapForASID(asid);
-    if (asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
-        return asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map);
-    } else {
-        hw_asid_t new_hw_asid;
+//     asid_map = findMapForASID(asid);
+//     if (asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
+//         return asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map);
+//     } else {
+//         hw_asid_t new_hw_asid;
 
-        new_hw_asid = findFreeHWASID();
-        storeHWASID(asid, new_hw_asid);
-        return new_hw_asid;
-    }
-}
+//         new_hw_asid = findFreeHWASID();
+//         storeHWASID(asid, new_hw_asid);
+//         return new_hw_asid;
+//     }
+// }
 
-static void invalidateASIDEntry(asid_t asid)
-{
-    asid_map_t asid_map;
+// static void invalidateASIDEntry(asid_t asid)
+// {
+//     asid_map_t asid_map;
 
-    asid_map = findMapForASID(asid);
-    if (asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
-        armKSHWASIDTable[asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map)] =
-            asidInvalid;
-    }
-    invalidateASID(asid);
-}
+//     asid_map = findMapForASID(asid);
+//     if (asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
+//         armKSHWASIDTable[asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map)] =
+//             asidInvalid;
+//     }
+//     invalidateASID(asid);
+// }
 
-#endif
+// #endif
 
 #ifdef CONFIG_ARM_SMMU
 static word_t getASIDBindCB(asid_t asid)
@@ -966,17 +966,17 @@ static inline void invalidateTLBByASID(asid_t asid)
         invalidateSMMUTLBByASID(asid, bind_cb);
     }
 #endif
-#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
-    asid_map_t asid_map;
+// #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+//     asid_map_t asid_map;
 
-    asid_map = findMapForASID(asid);
-    if (!asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
-        return;
-    }
-    invalidateTranslationASID(asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map));
-#else
+//     asid_map = findMapForASID(asid);
+//     if (!asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
+//         return;
+//     }
+//     invalidateTranslationASID(asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map));
+// #else
     invalidateTranslationASID(asid);
-#endif
+// #endif
 }
 
 static inline void invalidateTLBByASIDVA(asid_t asid, vptr_t vaddr)
@@ -987,18 +987,18 @@ static inline void invalidateTLBByASIDVA(asid_t asid, vptr_t vaddr)
         invalidateSMMUTLBByASIDVA(asid, vaddr, bind_cb);
     }
 #endif
-#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
-    asid_map_t asid_map;
+// #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+//     asid_map_t asid_map;
 
-    asid_map = findMapForASID(asid);
-    if (!asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
-        return;
-    }
-    uint64_t hw_asid = asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map);
-    invalidateTranslationSingle((hw_asid << 48) | vaddr >> seL4_PageBits);
-#else
+//     asid_map = findMapForASID(asid);
+//     if (!asid_map_asid_map_vspace_get_stored_vmid_valid(asid_map)) {
+//         return;
+//     }
+//     uint64_t hw_asid = asid_map_asid_map_vspace_get_stored_hw_vmid(asid_map);
+//     invalidateTranslationSingle((hw_asid << 48) | vaddr >> seL4_PageBits);
+// #else
     invalidateTranslationSingle((asid << 48) | vaddr >> seL4_PageBits);
-#endif
+// #endif
 }
 
 
@@ -1077,9 +1077,9 @@ void deleteASID(asid_t asid, vspace_root_t *vspace)
         if (asid_map_get_type(asid_map) == asid_map_asid_map_vspace &&
             (vspace_root_t *)asid_map_asid_map_vspace_get_vspace_root(asid_map) == vspace) {
             invalidateTLBByASID(asid);
-#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
-            invalidateASIDEntry(asid);
-#endif
+// #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+//             invalidateASIDEntry(asid);
+// #endif
             poolPtr->array[asid & MASK(asidLowBits)] = asid_map_asid_map_none_new();
             setVMRoot(NODE_STATE(ksCurThread));
         }
@@ -1097,9 +1097,9 @@ void deleteASIDPool(asid_t asid_base, asid_pool_t *pool)
             asid_map_t asid_map = pool->array[offset];
             if (asid_map_get_type(asid_map) == asid_map_asid_map_vspace) {
                 invalidateTLBByASID(asid_base + offset);
-#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
-                invalidateASIDEntry(asid_base + offset);
-#endif
+// #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+//                 invalidateASIDEntry(asid_base + offset);
+// #endif
             }
         }
         armKSASIDTable[asid_base >> asidLowBits] = NULL;
