@@ -30,7 +30,8 @@
 		seL4,elfloader-devices =
 		    "serial0",
 		    &{/psci},
-		    &{/timer};
+		    &{/timer},
+		    &{/amba_apu@0/interrupt-controller@f9010000};
 		seL4,kernel-devices =
 		    "serial0",
 		    &{/amba_apu@0/interrupt-controller@f9010000},
