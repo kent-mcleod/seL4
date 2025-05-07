@@ -222,7 +222,7 @@ word_t setMRs_fault(tcb_t *sender, tcb_t *receiver, word_t *receiveIPCBuffer)
         word_t len = setMR(receiver, receiveIPCBuffer, seL4_Timeout_Data,
                            seL4_Fault_Timeout_get_badge(sender->tcbFault));
         if (sender->tcbSchedContext) {
-            time_t consumed = schedContext_updateConsumed(sender->tcbSchedContext);
+            ticks_t consumed = schedContext_updateConsumed(sender->tcbSchedContext);
             return mode_setTimeArg(len, consumed,
                                    receiveIPCBuffer, receiver);
         } else {

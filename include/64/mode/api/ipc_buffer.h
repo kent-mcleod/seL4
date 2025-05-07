@@ -9,12 +9,12 @@
 #include <types.h>
 #include <api/syscall.h>
 
-static inline time_t mode_parseTimeArg(word_t i, word_t *buffer)
+static inline ticks_t mode_parseTimeArg(word_t i, word_t *buffer)
 {
     return getSyscallArg(i, buffer);
 }
 
-static inline word_t mode_setTimeArg(word_t i, time_t time, word_t *buffer, tcb_t *thread)
+static inline word_t mode_setTimeArg(word_t i, ticks_t time, word_t *buffer, tcb_t *thread)
 {
     return setMR(thread, buffer, i, time);
 }

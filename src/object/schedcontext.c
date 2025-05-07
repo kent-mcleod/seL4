@@ -161,7 +161,7 @@ static inline void maybeStallSC(sched_context_t *sc)
 
 static inline void setConsumed(sched_context_t *sc, word_t *buffer)
 {
-    time_t consumed = schedContext_updateConsumed(sc);
+    ticks_t consumed = schedContext_updateConsumed(sc);
     word_t length = mode_setTimeArg(0, consumed, buffer, NODE_STATE(ksCurThread));
     setRegister(NODE_STATE(ksCurThread), msgInfoRegister, wordFromMessageInfo(seL4_MessageInfo_new(0, 0, 0, length)));
 }
@@ -378,16 +378,11 @@ void schedContext_unbindNtfn(sched_context_t *sc)
     }
 }
 
-time_t schedContext_updateConsumed(sched_context_t *sc)
+ticks_t schedContext_updateConsumed(sched_context_t *sc)
 {
     ticks_t consumed = sc->scConsumed;
-    if (consumed >= getMaxTicksToUs()) {
-        sc->scConsumed -= getMaxTicksToUs();
-        return ticksToUs(getMaxTicksToUs());
-    } else {
-        sc->scConsumed = 0;
-        return ticksToUs(consumed);
-    }
+    sc->scConsumed = 0;
+    return consumed;
 }
 
 void schedContext_cancelYieldTo(tcb_t *tcb)

@@ -25,11 +25,6 @@ static inline void setDeadline(ticks_t deadline);
 /** MODIFIES: [*] */
 static inline void ackDeadlineIRQ(void);
 
-/* get the expected wcet of the kernel for this platform */
-static PURE inline ticks_t getKernelWcetTicks(void)
-{
-    return usToTicks(getKernelWcetUs());
-}
 #else /* CONFIG_KERNEL_MCS */
 static inline void resetTimer(void);
 #endif /* !CONFIG_KERNEL_MCS */
