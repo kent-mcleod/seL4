@@ -91,10 +91,8 @@ static exception_t decodeSchedControl_ConfigureFlags(word_t length, cap_t cap, w
         return EXCEPTION_SYSCALL_ERROR;
     }
 
-    time_t budget_us = mode_parseTimeArg(0, buffer);
-    ticks_t budget_ticks = usToTicks(budget_us);
-    time_t period_us = mode_parseTimeArg(TIME_ARG_SIZE, buffer);
-    ticks_t period_ticks = usToTicks(period_us);
+    ticks_t budget_ticks = mode_parseTimeArg(0, buffer);
+    ticks_t period_ticks = mode_parseTimeArg(TIME_ARG_SIZE, buffer);
     word_t extra_refills = getSyscallArg(TIME_ARG_SIZE * 2, buffer);
     word_t badge = getSyscallArg(TIME_ARG_SIZE * 2 + 1, buffer);
     word_t flags = getSyscallArg(TIME_ARG_SIZE * 2 + 2, buffer);
@@ -107,27 +105,27 @@ static exception_t decodeSchedControl_ConfigureFlags(word_t length, cap_t cap, w
         return EXCEPTION_SYSCALL_ERROR;
     }
 
-    if (budget_us > MAX_PERIOD_US || budget_ticks < MIN_BUDGET) {
+    if (budget_ticks > MAX_PERIOD_TICKS || budget_ticks < MIN_BUDGET) {
         userError("SchedControl_ConfigureFlags: budget out of range.");
         current_syscall_error.type = seL4_RangeError;
-        current_syscall_error.rangeErrorMin = MIN_BUDGET_US;
-        current_syscall_error.rangeErrorMax = MAX_PERIOD_US;
+        current_syscall_error.rangeErrorMin = MIN_BUDGET;
+        current_syscall_error.rangeErrorMax = MAX_PERIOD_TICKS;
         return EXCEPTION_SYSCALL_ERROR;
     }
 
-    if (period_us > MAX_PERIOD_US || period_ticks < MIN_BUDGET) {
+    if (period_ticks > MAX_PERIOD_TICKS || period_ticks < MIN_BUDGET) {
         userError("SchedControl_ConfigureFlags: period out of range.");
         current_syscall_error.type = seL4_RangeError;
-        current_syscall_error.rangeErrorMin = MIN_BUDGET_US;
-        current_syscall_error.rangeErrorMax = MAX_PERIOD_US;
+        current_syscall_error.rangeErrorMin = MIN_BUDGET;
+        current_syscall_error.rangeErrorMax = MAX_PERIOD_TICKS;
         return EXCEPTION_SYSCALL_ERROR;
     }
 
     if (budget_ticks > period_ticks) {
         userError("SchedControl_ConfigureFlags: budget must be <= period");
         current_syscall_error.type = seL4_RangeError;
-        current_syscall_error.rangeErrorMin = MIN_BUDGET_US;
-        current_syscall_error.rangeErrorMax = period_us;
+        current_syscall_error.rangeErrorMin = MIN_BUDGET;
+        current_syscall_error.rangeErrorMax = period_ticks;
         return EXCEPTION_SYSCALL_ERROR;
     }
 

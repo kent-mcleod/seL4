@@ -38,7 +38,7 @@ enum IRQConstants {
 #endif
 
 #ifdef CONFIG_KERNEL_MCS
-static inline CONST time_t getKernelWcetUs(void)
+static inline CONST ticks_t getKernelWcetTicks(void)
 {
     return @CONFIGURE_KERNEL_WCET@;
 }

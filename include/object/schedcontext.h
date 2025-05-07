@@ -65,7 +65,7 @@ void schedContext_bindNtfn(sched_context_t *sc, notification_t *ntfn);
 /* unbind scheduling context from a notification */
 void schedContext_unbindNtfn(sched_context_t *sc);
 
-time_t schedContext_updateConsumed(sched_context_t *sc);
+ticks_t schedContext_updateConsumed(sched_context_t *sc);
 void schedContext_completeYieldTo(tcb_t *yielder);
 void schedContext_cancelYieldTo(tcb_t *yielder);
 

@@ -124,10 +124,10 @@ void obj_sc_print_attrs(cap_t sc_cap)
     sched_context_t *sc = SC_PTR(cap_sched_context_cap_get_capSCPtr(sc_cap));
     ticks_t period = sc->scPeriod;
     ticks_t budget = sc_get_budget(sc);
-    printf("(period: %"PRIu64" us (%"PRIu64" ticks), budget: %"PRIu64 " us "
-           "(%"PRIu64" ticks), %"SEL4_PRIu_word" bits)\n",
-           ticksToUs(period), period,
-           ticksToUs(budget), budget,
+    printf("(period: %"PRIu64" ticks, budget: %"PRIu64 " ticks "
+           ", %"SEL4_PRIu_word" bits)\n",
+           period,
+           budget,
            (word_t)cap_sched_context_cap_get_capSCSizeBits(sc_cap));
 }
 #endif /* CONFIG_KERNEL_MCS */
