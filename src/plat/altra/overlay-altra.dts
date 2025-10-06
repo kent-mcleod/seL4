@@ -1,0 +1,18 @@
+/*
+ * Copyright 2025, Kry10 Limited.
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
+/ {
+	chosen {
+		seL4,elfloader-devices =
+			&{/timer};
+
+		seL4,kernel-devices =
+			&{/armpl011@100002600000},
+			&{/intc@gic},
+			&{/timer};
+	};
+
+};
