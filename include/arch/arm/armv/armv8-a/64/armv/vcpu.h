@@ -596,6 +596,10 @@ static inline void vcpu_init_vtcr(void)
     vtcr_el2 = VTCR_EL2_T0SZ(24);                            // 40-bit input IPA
     vtcr_el2 |= VTCR_EL2_PS(PS_1T);                          // 40-bit PA size
     vtcr_el2 |= VTCR_EL2_SL0(SL0_4K_L1);                     // 4KiB, start at level 1
+#elif defined(CONFIG_ARM_PA_SIZE_BITS_48)
+    vtcr_el2 = VTCR_EL2_T0SZ(16);                            // 48-bit input IPA
+    vtcr_el2 |= VTCR_EL2_PS(PS_256T);                        // 48-bit PA size
+    vtcr_el2 |= VTCR_EL2_SL0(SL0_4K_L0);                     // 4KiB, start at level 0
 #else
     vtcr_el2 = VTCR_EL2_T0SZ(20);                            // 44-bit input IPA
     vtcr_el2 |= VTCR_EL2_PS(PS_16T);                         // 44-bit PA size

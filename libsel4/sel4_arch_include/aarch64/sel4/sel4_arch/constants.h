@@ -247,6 +247,8 @@ SEL4_SIZE_SANITY(seL4_VSpaceEntryBits, seL4_VSpaceIndexBits, seL4_VSpaceBits);
 #define seL4_UserTop 0x00000fffffffffff
 #elif defined(CONFIG_ARM_PA_SIZE_BITS_40)
 #define seL4_UserTop 0x000000ffffffffff
+#elif defined(CONFIG_ARM_PA_SIZE_BITS_48)
+#define seL4_UserTop 0x0000ffffffffffff
 #else
 #error "Unknown physical address width"
 #endif
