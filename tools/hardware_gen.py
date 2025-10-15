@@ -74,6 +74,7 @@ if __name__ == '__main__':
                         required=True, type=argparse.FileType('r'))
     parser.add_argument('--hardware-schema', help='YAML file containing schema for hardware config',
                         required=True, type=argparse.FileType('r'))
+    parser.add_argument('--kernel-config-flags', help='list of config params', action='append', nargs='+')
     parser.add_argument('--sel4arch', help='seL4 architecture to generate for',
                         required=True)
     parser.add_argument('--addrspace-max',

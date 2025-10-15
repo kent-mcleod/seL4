@@ -78,6 +78,7 @@ lookupSlot_ret_t lookupSlotForCNodeOp(bool_t isSource, cap_t root, cptr_t capptr
         return ret;
     }
 
+    printf("capptr: %lx %ld\n", capptr, depth);
     if (unlikely(depth < 1 || depth > wordBits)) {
         current_syscall_error.type = seL4_RangeError;
         current_syscall_error.rangeErrorMin = 1;
@@ -143,6 +144,7 @@ resolveAddressBits_ret_t resolveAddressBits(cap_t nodeCap, cptr_t capptr, word_t
         radixBits = cap_cnode_cap_get_capCNodeRadix(nodeCap);
         guardBits = cap_cnode_cap_get_capCNodeGuardSize(nodeCap);
         levelBits = radixBits + guardBits;
+        printf("a\n");
 
         /* Haskell error: "All CNodes must resolve bits" */
         assert(levelBits != 0);
@@ -160,6 +162,7 @@ resolveAddressBits_ret_t resolveAddressBits(cap_t nodeCap, cptr_t capptr, word_t
             ret.status = EXCEPTION_LOOKUP_FAULT;
             return ret;
         }
+        printf("b\n");
 
         if (unlikely(levelBits > n_bits)) {
             current_lookup_fault =
@@ -169,6 +172,7 @@ resolveAddressBits_ret_t resolveAddressBits(cap_t nodeCap, cptr_t capptr, word_t
         }
 
         offset = (capptr >> (n_bits - levelBits)) & MASK(radixBits);
+        printf("s: %ld\n", offset);
         slot = CTE_PTR(cap_cnode_cap_get_capCNodePtr(nodeCap)) + offset;
 
         if (likely(n_bits == levelBits)) {

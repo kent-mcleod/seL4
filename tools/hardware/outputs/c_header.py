@@ -13,6 +13,7 @@ import hardware
 from hardware.config import Config
 from hardware.fdt import FdtParser
 from hardware.utils.rule import HardwareYaml
+from hardware.memory import Region
 
 
 HEADER_TEMPLATE = '''/*
@@ -116,12 +117,45 @@ static const kernel_frame_t BOOT_RODATA *const kernel_device_frames = NULL;
 {% endif %}
 
 /* PHYSICAL MEMORY */
-static const p_region_t BOOT_RODATA avail_p_regs[] = {
-    {% for reg in physical_memory %}
-    /* {{ reg.owner.path }} */
-    {
-        .start = {{ "0x{:x}".format(reg.base) }},
-        .end   = {{ "0x{:x}".format(reg.base + reg.size) }}
+
+#define MDB_NODE_NEW(mdbNext, mdbRevocable, mdbFirstBadged, mdbPrev) \
+    { \
+        .words = {0 \
+            | (mdbPrev & 0xfffffff8u) >> 0, \
+        0 \
+            | (mdbNext & 0xfffffff8u) >> 0 \
+            | (mdbRevocable & 0x1u) << 1 \
+            | (mdbFirstBadged & 0x1u) << 0 \
+            }\
+    }
+
+#define CAP_UNTYPED_CAP_NEW(capFreeIndex, capIsDevice, capBlockSize, capPtr) \
+    { \
+      .words = {0 \
+        | (capPtr & 0xfffffff0u) >> 0 \
+        | ((uint32_t)cap_untyped_cap & 0xfu) << 0, \
+        0 \
+        | (capFreeIndex & 0x3ffffffu) << 6 \
+        | (capIsDevice & 0x1u) << 5 \
+        | (capBlockSize & 0x1fu) << 0 \
+        } \
+    }
+
+
+static cte_t BOOT_DATA kernel_untyped_caps[] ALIGN(BIT(seL4_SlotBits)) = {
+    {% for reg in kernel_untypeds %}
+    (cte_t){
+        .cap = CAP_UNTYPED_CAP_NEW(0, false, {{reg.size}}, {{"0x{:x}".format(reg.base)}}),
+        .cteMDBNode = MDB_NODE_NEW(0, true, true, 0),
+    },
+    {% endfor %}
+};
+
+static cte_t BOOT_DATA device_untyped_caps[] ALIGN(BIT(seL4_SlotBits)) = {
+    {% for reg in device_untypeds %}
+    (cte_t){
+        .cap = CAP_UNTYPED_CAP_NEW(0, true, {{reg.size}}, {{"0x{:x}".format(reg.base)}}),
+        .cteMDBNode = MDB_NODE_NEW(0, true, true, 0),
     },
     {% endfor %}
 };
@@ -131,7 +165,7 @@ static const p_region_t BOOT_RODATA avail_p_regs[] = {
 '''
 
 
-def get_kernel_devices(tree: FdtParser, hw_yaml: HardwareYaml) -> (List, Dict):
+def get_kernel_devices(tree: FdtParser, hw_yaml: HardwareYaml, kernel_config_dict) -> (List, Dict):
     '''
     Given a device tree and a set of rules, returns a tuple (groups, offsets).
 
@@ -149,6 +183,9 @@ def get_kernel_devices(tree: FdtParser, hw_yaml: HardwareYaml) -> (List, Dict):
         dev_rule = hw_yaml.get_rule(dev)
         new_regions = dev_rule.get_regions(dev)
         for reg in new_regions:
+            if reg.macro in kernel_config_dict:
+                if kernel_config_dict[reg.macro] != "ON":
+                    continue
             if reg in groups:
                 other = groups[groups.index(reg)]
                 other.take_labels(reg)
@@ -184,10 +221,112 @@ def get_interrupts(tree: FdtParser, hw_yaml: HardwareYaml) -> List:
     ret.sort(key=lambda a: a.label)
     return ret
 
+def ctz(size_bytes: int):
+    """
+    Count trailing zeros in a python integer.
+    The value must be greater than 0.
+    """
+    assert(size_bytes > 0)
+    low = size_bytes & -size_bytes
+    low_bit = -1
+    while low:
+        low = low >> 1
+        low_bit += 1
+    return low_bit
+
+def bit_size(size_bytes: int):
+    """
+    Count trailing zeros in a python integer.
+    The value must be greater than 0.
+    """
+    assert(size_bytes > 0)
+    low = size_bytes & -size_bytes
+    highest_bit = 0
+    while (1 << highest_bit) <= size_bytes:
+        highest_bit += 1
+    return highest_bit - 1
+
+
+def pptr_from_paddr(paddr:int, physBase: int):
+    PPTR_BASE_OFFSET = 0xe0000000 - physBase
+    return paddr + PPTR_BASE_OFFSET
+
+def get_kernel_untypeds(physical_memory: List, physBase: int):
+    kernel_untypeds = []
+    for reg in physical_memory:
+        while reg.size != 0:
+            if reg.size == 0:
+                continue
+            pptr_base = pptr_from_paddr(reg.base, physBase)
+            size_bits = bit_size(reg.size)
+            if size_bits > 29:
+                size_bits = 29
+
+            if pptr_base != 0:
+                align_bits = ctz(pptr_base)
+                if size_bits > align_bits:
+                    size_bits = align_bits
+            if size_bits >= 4:
+                print(hex(pptr_base), size_bits)
+                kernel_untypeds.append(Region(pptr_base, size_bits))
+                # generate untyped
+            reg.size -= 1 << size_bits
+            reg.base += 1 << size_bits
+
+    return kernel_untypeds
+
+# Sorted list of non-overlapping regions
+# merge adjacent regions
+def get_reserved_list(kernel_device_regions: List, addrspace_max: int, physical_memory:List, physBase: int):
+    print(kernel_device_regions, physical_memory, addrspace_max)
+    device_untyped_regions = [Region(0, addrspace_max)]
+    for dev_region in kernel_device_regions:
+        if dev_region.user_ok:
+            continue
+        next_list = []
+        for cursor in device_untyped_regions:
+            next_list = next_list + cursor.reserve(Region(dev_region.base, dev_region.size))
+        device_untyped_regions = next_list
+
+    for ut_region in physical_memory:
+        next_list = []
+        for cursor in device_untyped_regions:
+            next_list = next_list + cursor.reserve(ut_region)
+        device_untyped_regions = next_list
+
+    dev_untypeds = []
+    for reg in device_untyped_regions:
+        while reg.size != 0:
+            if reg.size == 0:
+                continue
+            pptr_base = pptr_from_paddr(reg.base, physBase)
+            size_bits = bit_size(reg.size)
+            if size_bits > 29:
+                size_bits = 29
+
+            if pptr_base != 0:
+                align_bits = ctz(pptr_base)
+                if size_bits > align_bits:
+                    size_bits = align_bits
+            if size_bits >= 4:
+                print(hex(pptr_base), size_bits)
+                dev_untypeds.append(Region(pptr_base, size_bits))
+                # generate untyped
+            reg.size -= 1 << size_bits
+            reg.base += 1 << size_bits
+
+    import pdb
+    pdb.set_trace()
+
+    return dev_untypeds
+
+
+
+
 
 def create_c_header_file(config, kernel_irqs: List, kernel_macros: Dict,
-                         kernel_regions: List, physBase: int, physical_memory,
-                         outputStream):
+                         kernel_regions: List, physBase: int, kernel_untypeds,
+                         device_untypeds, outputStream):
 
     jinja_env = jinja2.Environment(loader=jinja2.BaseLoader, trim_blocks=True,
                                    lstrip_blocks=True)
@@ -201,7 +340,8 @@ def create_c_header_file(config, kernel_irqs: List, kernel_macros: Dict,
             'kernel_macros': kernel_macros,
             'kernel_regions': kernel_regions,
             'physBase': physBase,
-            'physical_memory': physical_memory})
+            'device_untypeds': device_untypeds,
+            'kernel_untypeds': kernel_untypeds})
     data = template.render(template_args)
 
     with outputStream:
@@ -212,8 +352,18 @@ def run(tree: FdtParser, hw_yaml: HardwareYaml, config: Config, args: argparse.N
     if not args.header_out:
         raise ValueError('You need to specify a header-out to use c header output')
 
+    kernel_config_dict = dict()
+    for option in sum(args.kernel_config_flags, []):
+        name, val = option.split('=')
+        kernel_config_dict[name] = val
+
+
+
+
     physical_memory, reserved, physBase = hardware.utils.memory.get_physical_memory(tree, config)
-    kernel_regions, kernel_macros = get_kernel_devices(tree, hw_yaml)
+    kernel_regions, kernel_macros = get_kernel_devices(tree, hw_yaml, kernel_config_dict)
+    dev_untypeds = get_reserved_list(kernel_regions, args.addrspace_max, physical_memory, physBase)
+    kernel_untypeds = get_kernel_untypeds(physical_memory, physBase)
 
     create_c_header_file(
         config,
@@ -221,7 +371,8 @@ def run(tree: FdtParser, hw_yaml: HardwareYaml, config: Config, args: argparse.N
         kernel_macros,
         kernel_regions,
         physBase,
-        physical_memory,
+        kernel_untypeds,
+        dev_untypeds,
         args.header_out)
 
 

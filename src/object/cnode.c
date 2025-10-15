@@ -343,7 +343,7 @@ exception_t invokeCNodeInsert(cap_t cap, cte_t *srcSlot, cte_t *destSlot)
 exception_t invokeCNodeMove(cap_t cap, cte_t *srcSlot, cte_t *destSlot)
 {
     cteMove(cap, srcSlot, destSlot);
-
+    printf("moved\n");
     return EXCEPTION_NONE;
 }
 

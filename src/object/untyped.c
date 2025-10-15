@@ -180,7 +180,9 @@ exception_t decodeUntypedInvocation(word_t invLabel, word_t length, cte_t *slot,
      * If we have children, we just keep allocating from the "free" value
      * recorded in the cap.
      */
+    printf("wtf: %d\n", __LINE__);
     status = ensureNoChildren(slot);
+    printf("wtf: %d\n", __LINE__);
     if (status != EXCEPTION_NONE) {
         freeIndex = cap_untyped_cap_get_capFreeIndex(cap);
         reset = false;
@@ -189,6 +191,7 @@ exception_t decodeUntypedInvocation(word_t invLabel, word_t length, cte_t *slot,
         reset = true;
     }
     freeRef = GET_FREE_REF(cap_untyped_cap_get_capPtr(cap), freeIndex);
+    printf("wtf: %d\n", __LINE__);
 
     /*
      * Determine the maximum number of objects we can create, and return an
@@ -298,9 +301,11 @@ exception_t invokeUntyped_Retype(cte_t *srcSlot,
     srcSlot->cap = cap_untyped_cap_set_capFreeIndex(srcSlot->cap,
                                                     GET_FREE_INDEX(regionBase, freeRef));
 
+    printf("Create new objs\n");
     /* Create new objects and caps. */
     createNewObjects(newType, srcSlot, destCNode, destOffset, destLength,
                      retypeBase, userSize, deviceMemory);
+    printf("wtf: %d\n", __LINE__);
 
     return EXCEPTION_NONE;
 }

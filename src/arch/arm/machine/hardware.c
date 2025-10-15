@@ -34,12 +34,12 @@ BOOT_CODE void map_kernel_devices(void)
         map_kernel_frame(frame->paddr, frame->pptr, VMKernelOnly,
                          vm_attributes_new(frame->armExecuteNever, false,
                                            false));
-        if (!frame->userAvailable) {
-            reserve_region((p_region_t) {
-                .start = frame->paddr,
-                .end   = frame->paddr + BIT(PAGE_BITS)
-            });
-        }
+        // if (!frame->userAvailable) {
+        //     reserve_region((p_region_t) {
+        //         .start = frame->paddr,
+        //         .end   = frame->paddr + BIT(PAGE_BITS)
+        //     });
+        // }
     }
 }
 

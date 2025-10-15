@@ -95,7 +95,7 @@ class KernelRegionGroup:
         return self.desc
 
     def __repr__(self):
-        return 'KernelRegion(reg={},labels={})'.format(self.regions, self.labels)
+        return 'KernelRegion(reg={},labels={},condition={})'.format(self.regions, self.labels, self.macro)
 
     def __eq__(self, other):
         return other.base == self.base and other.size == self.size

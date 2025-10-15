@@ -616,9 +616,10 @@ void createNewObjects(object_t t, cte_t *parent,
         /* Create the object. */
         /** AUXUPD: "(True, typ_region_bytes (ptr_val \<acute> nextFreeArea + ((\<acute> i) << unat (\<acute> objectSize))) (unat (\<acute> objectSize)))" */
         cap_t cap = createObject(t, (void *)((word_t)nextFreeArea + (i << objectSize)), userSize, deviceMemory);
-
+        printf("a\n");
         /* Insert the cap into the user's cspace. */
         insertNewCap(parent, &destCNode[destOffset + i], cap);
+        printf("b\n");
 
         /* Move along to the next region of memory. been merged into a formula of i */
     }

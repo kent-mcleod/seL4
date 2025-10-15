@@ -37,49 +37,49 @@
 BOOT_BSS static volatile int node_boot_lock;
 #endif /* ENABLE_SMP_SUPPORT */
 
-BOOT_BSS static region_t reserved[NUM_RESERVED_REGIONS];
+// BOOT_BSS static region_t reserved[NUM_RESERVED_REGIONS];
 
-BOOT_CODE static bool_t arch_init_freemem(p_region_t ui_p_reg,
-                                          p_region_t dtb_p_reg,
-                                          v_region_t it_v_reg,
-                                          word_t extra_bi_size_bits)
-{
-    /* reserve the kernel image region */
-    reserved[0] = paddr_to_pptr_reg(get_p_reg_kernel_img());
+// BOOT_CODE static bool_t arch_init_freemem(p_region_t ui_p_reg,
+//                                           p_region_t dtb_p_reg,
+//                                           v_region_t it_v_reg,
+//                                           word_t extra_bi_size_bits)
+// {
+//     /* reserve the kernel image region */
+//     reserved[0] = paddr_to_pptr_reg(get_p_reg_kernel_img());
 
-    int index = 1;
+//     int index = 1;
 
-    /* add the dtb region, if it is not empty */
-    if (dtb_p_reg.start) {
-        if (index >= ARRAY_SIZE(reserved)) {
-            printf("ERROR: no slot to add DTB to reserved regions\n");
-            return false;
-        }
-        reserved[index].start = (pptr_t) paddr_to_pptr(dtb_p_reg.start);
-        reserved[index].end = (pptr_t) paddr_to_pptr(dtb_p_reg.end);
-        index++;
-    }
+//     /* add the dtb region, if it is not empty */
+//     if (dtb_p_reg.start) {
+//         if (index >= ARRAY_SIZE(reserved)) {
+//             printf("ERROR: no slot to add DTB to reserved regions\n");
+//             return false;
+//         }
+//         reserved[index].start = (pptr_t) paddr_to_pptr(dtb_p_reg.start);
+//         reserved[index].end = (pptr_t) paddr_to_pptr(dtb_p_reg.end);
+//         index++;
+//     }
 
-    /* Reserve the user image region. */
-    if (ui_p_reg.start < PADDR_TOP) {
-        region_t ui_reg = paddr_to_pptr_reg(ui_p_reg);
-        if (index >= ARRAY_SIZE(reserved)) {
-            printf("ERROR: no slot to add the user image to the reserved"
-                   "regions\n");
-            return false;
-        }
-        reserved[index] = ui_reg;
-        index++;
-    } else {
-        /* Reserve the ui_p_reg region still so it doesn't get turned into device UT. */
-        reserve_region(ui_p_reg);
-    }
+//     /* Reserve the user image region. */
+//     if (ui_p_reg.start < PADDR_TOP) {
+//         region_t ui_reg = paddr_to_pptr_reg(ui_p_reg);
+//         if (index >= ARRAY_SIZE(reserved)) {
+//             printf("ERROR: no slot to add the user image to the reserved"
+//                    "regions\n");
+//             return false;
+//         }
+//         reserved[index] = ui_reg;
+//         index++;
+//     } else {
+//         /* Reserve the ui_p_reg region still so it doesn't get turned into device UT. */
+//         reserve_region(ui_p_reg);
+//     }
 
-    /* avail_p_regs comes from the auto-generated code */
-    return init_freemem(ARRAY_SIZE(avail_p_regs), avail_p_regs,
-                        index, reserved,
-                        it_v_reg, extra_bi_size_bits);
-}
+//     /* avail_p_regs comes from the auto-generated code */
+//     return init_freemem(ARRAY_SIZE(avail_p_regs), avail_p_regs,
+//                         index, reserved,
+//                         it_v_reg, extra_bi_size_bits);
+// }
 
 
 BOOT_CODE static void init_irqs(cap_t root_cnode_cap)
@@ -291,6 +291,30 @@ BOOT_CODE static void release_secondary_cpus(void)
 #endif /* ENABLE_SMP_SUPPORT */
 
 /* Main kernel initialisation function. */
+word_t ipc_buf[7];
+#define BOOTSTRAP_CNODE_SLOT_BITS 6
+BOOT_BSS cte_t bootstrap_cnode[BIT(BOOTSTRAP_CNODE_SLOT_BITS)] ALIGN(BIT(BOOTSTRAP_CNODE_SLOT_BITS + seL4_SlotBits));
+// TODO add alignment static assert?
+
+#define BOOTSTRAP_UNTYPED_RETYPE(src_ut_slot, object_type, object_size, root_slot, \
+                                 node_index, node_depth, node_offset, num_objects, ipc_buf) \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[0], object_type); \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[1], object_size); \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[2], node_index); \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[3], node_depth); \
+    ipc_buf[5] = node_offset; \
+    ipc_buf[6] = num_objects; \
+    current_extra_caps.excaprefs[0] = root_slot; \
+    decodeUntypedInvocation(UntypedRetype, 6, src_ut_slot, src_ut_slot->cap, 0, ipc_buf)
+
+#define BOOTSTRAP_CNODE_MOVE(dest_slot, dest_index, dest_depth, src_slot, src_index, src_depth, ipc_buf) \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[0], dest_index); \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[1], dest_depth); \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[2], src_index); \
+    setRegister(NODE_STATE(ksCurThread), msgRegisters[3], src_depth); \
+    current_extra_caps.excaprefs[0] = src_slot; \
+    decodeCNodeInvocation(CNodeMove, 4, dest_slot->cap, ipc_buf)
+
 
 static BOOT_CODE bool_t try_init_kernel(
     paddr_t ui_p_reg_start,
@@ -301,31 +325,6 @@ static BOOT_CODE bool_t try_init_kernel(
     word_t  dtb_size
 )
 {
-    cap_t root_cnode_cap;
-    cap_t it_ap_cap;
-    cap_t it_pd_cap;
-    cap_t ipcbuf_cap;
-    p_region_t ui_p_reg = (p_region_t) {
-        ui_p_reg_start, ui_p_reg_end
-    };
-    region_t ui_reg = paddr_to_pptr_reg(ui_p_reg);
-    word_t extra_bi_size = 0;
-    pptr_t extra_bi_offset = 0;
-    vptr_t extra_bi_frame_vptr;
-    vptr_t bi_frame_vptr;
-    vptr_t ipcbuf_vptr;
-    create_frames_of_region_ret_t create_frames_ret;
-    create_frames_of_region_ret_t extra_bi_ret;
-
-    /* convert from physical addresses to userland vptrs */
-    v_region_t ui_v_reg = {
-        .start = ui_p_reg_start - pv_offset,
-        .end   = ui_p_reg_end   - pv_offset
-    };
-
-    ipcbuf_vptr = ui_v_reg.end;
-    bi_frame_vptr = ipcbuf_vptr + BIT(PAGE_BITS);
-    extra_bi_frame_vptr = bi_frame_vptr + BIT(seL4_BootInfoFrameBits);
 
     /* setup virtual memory for the kernel */
     map_kernel_window();
@@ -342,36 +341,58 @@ static BOOT_CODE bool_t try_init_kernel(
     /* initialise the platform */
     init_plat();
 
+    /* create the idle thread */
+    create_idle_thread();
+    init_core_state(SchedulerAction_ChooseNewThread);
+
+
+    p_region_t ui_p_reg = (p_region_t) {
+        ui_p_reg_start, ui_p_reg_end
+    };
+    region_t ui_reg = paddr_to_pptr_reg(ui_p_reg);
+    word_t extra_bi_size = 0;
+    pptr_t extra_bi_offset = 0;
+
+    /* convert from physical addresses to userland vptrs */
+    v_region_t ui_v_reg = {
+        .start = ui_p_reg_start - pv_offset,
+        .end   = ui_p_reg_end   - pv_offset
+    };
+
+    vptr_t ipcbuf_vptr = ui_v_reg.end;
+    vptr_t bi_frame_vptr = ipcbuf_vptr + BIT(PAGE_BITS);
+    vptr_t extra_bi_frame_vptr = bi_frame_vptr + BIT(seL4_BootInfoFrameBits);
+
     /* If a DTB was provided, pass the data on as extra bootinfo */
-    p_region_t dtb_p_reg = P_REG_EMPTY;
-    if (dtb_size > 0) {
-        paddr_t dtb_phys_end = dtb_phys_addr + dtb_size;
-        if (dtb_phys_end < dtb_phys_addr) {
-            /* An integer overflow happened in DTB end address calculation, the
-             * location or size passed seems invalid.
-             */
-            printf("ERROR: DTB location at %"SEL4_PRIx_word
-                   " len %"SEL4_PRIu_word" invalid\n",
-                   dtb_phys_addr, dtb_size);
-            return false;
-        }
-        /* If the DTB is located in physical memory that is not mapped in the
-         * kernel window we cannot access it.
-         */
-        if (dtb_phys_end >= PADDR_TOP) {
-            printf("ERROR: DTB at [%"SEL4_PRIx_word"..%"SEL4_PRIx_word"] "
-                   "exceeds PADDR_TOP (%"SEL4_PRIx_word")\n",
-                   dtb_phys_addr, dtb_phys_end, PADDR_TOP);
-            return false;
-        }
-        /* DTB seems valid and accessible, pass it on in bootinfo. */
-        extra_bi_size += sizeof(seL4_BootInfoHeader) + dtb_size;
-        /* Remember the memory region it uses. */
-        dtb_p_reg = (p_region_t) {
-            .start = dtb_phys_addr,
-            .end   = dtb_phys_end
-        };
-    }
+    // p_region_t dtb_p_reg = P_REG_EMPTY;
+    // if (dtb_size > 0) {
+    //     paddr_t dtb_phys_end = dtb_phys_addr + dtb_size;
+    //     if (dtb_phys_end < dtb_phys_addr) {
+    //         /* An integer overflow happened in DTB end address calculation, the
+    //          * location or size passed seems invalid.
+    //          */
+    //         printf("ERROR: DTB location at %"SEL4_PRIx_word
+    //                " len %"SEL4_PRIu_word" invalid\n",
+    //                dtb_phys_addr, dtb_size);
+    //         return false;
+    //     }
+    //     /* If the DTB is located in physical memory that is not mapped in the
+    //      * kernel window we cannot access it.
+    //      */
+    //     if (dtb_phys_end >= PADDR_TOP) {
+    //         printf("ERROR: DTB at [%"SEL4_PRIx_word"..%"SEL4_PRIx_word"] "
+    //                "exceeds PADDR_TOP (%"SEL4_PRIx_word")\n",
+    //                dtb_phys_addr, dtb_phys_end, PADDR_TOP);
+    //         return false;
+    //     }
+    //     /* DTB seems valid and accessible, pass it on in bootinfo. */
+    //     extra_bi_size += sizeof(seL4_BootInfoHeader) + dtb_size;
+    //     /* Remember the memory region it uses. */
+    //     dtb_p_reg = (p_region_t) {
+    //         .start = dtb_phys_addr,
+    //         .end   = dtb_phys_end
+    //     };
+    // }
 
     /* The region of the initial thread is the user image + ipcbuf and boot info */
     word_t extra_bi_size_bits = calculate_extra_bi_size_bits(extra_bi_size);
@@ -390,20 +411,55 @@ static BOOT_CODE bool_t try_init_kernel(
         return false;
     }
 
-    if (!arch_init_freemem(ui_p_reg, dtb_p_reg, it_v_reg, extra_bi_size_bits)) {
-        printf("ERROR: free memory management initialization failed\n");
-        return false;
-    }
+    // if (!arch_init_freemem(ui_p_reg, dtb_p_reg, it_v_reg, extra_bi_size_bits)) {
+    //     printf("ERROR: free memory management initialization failed\n");
+    //     return false;
+    // }
 
+    printf("%x\n", device_untyped_caps[0].cap.words[0]);
+    printf("%x\n", kernel_untyped_caps[0].cap.words[0]);
+
+    word_t cnode_size_bits = CONFIG_ROOT_CNODE_SIZE_BITS + seL4_SlotBits;
+    word_t max = MAX(cnode_size_bits, seL4_VSpaceBits);
+
+    max = MAX(max, extra_bi_size_bits);
+
+    printf("Woo\n");
+
+    memzero(bootstrap_cnode, BIT(BOOTSTRAP_CNODE_SLOT_BITS + seL4_SlotBits));
+    cap_t cnode_cap = cap_cnode_cap_new(
+                    BOOTSTRAP_CNODE_SLOT_BITS, /* radix */
+                    0, /* guard size */
+                    0, /* guard */
+                    (pptr_t) bootstrap_cnode); /* pptr */
+
+    write_slot(SLOT_PTR(bootstrap_cnode, 0), cnode_cap);
+
+    printf("Woo2\n");
+
+    // Create root CNode
+    BOOTSTRAP_UNTYPED_RETYPE(SLOT_PTR(kernel_untyped_caps, 1), seL4_CapTableObject, CONFIG_ROOT_CNODE_SIZE_BITS,
+                             SLOT_PTR(bootstrap_cnode, 0), 0, 0, 2, 1, ipc_buf);
+
+    printf("Woo3\n");
+
+    cte_t *root_cnode_slot = SLOT_PTR(pptr_of_cap(SLOT_PTR(bootstrap_cnode, 2)->cap), seL4_CapInitThreadCNode);
+    // Move CNode cap into self.
+    BOOTSTRAP_CNODE_MOVE(SLOT_PTR(bootstrap_cnode, 2), seL4_CapInitThreadCNode, CONFIG_ROOT_CNODE_SIZE_BITS,
+                         SLOT_PTR(bootstrap_cnode, 0), 2, BOOTSTRAP_CNODE_SLOT_BITS, ipc_buf);
+    cap_t root_cnode_cap = root_cnode_slot->cap;
+
+    printf("woo 4\n");
     /* create the root cnode */
-    root_cnode_cap = create_root_cnode();
-    if (cap_get_capType(root_cnode_cap) == cap_null_cap) {
-        printf("ERROR: root c-node creation failed\n");
-        return false;
-    }
+    // cap_t root_cnode_cap = create_root_cnode();
+    // if (cap_get_capType(root_cnode_cap) == cap_null_cap) {
+    //     printf("ERROR: root c-node creation failed\n");
+    //     return false;
+    // }
 
     /* create the cap for managing thread domains */
     create_domain_cap(root_cnode_cap);
+    printf("woo 5\n");
 
     /* initialise the IRQ states and provide the IRQ control cap */
     init_irqs(root_cnode_cap);
@@ -415,8 +471,17 @@ static BOOT_CODE bool_t try_init_kernel(
 #ifdef CONFIG_ALLOW_SMC_CALLS
     init_smc(root_cnode_cap);
 #endif
+    printf("woo 6\n");
 
-    populate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr, extra_bi_size);
+    /* Construct an initial address space with enough virtual addresses
+     * to cover the user image + ipc buffer and bootinfo frames */
+    cap_t it_pd_cap = create_it_address_space(root_cnode_cap, it_v_reg);
+    if (cap_get_capType(it_pd_cap) == cap_null_cap) {
+        printf("ERROR: address space creation for initial thread failed\n");
+        return false;
+    }
+
+    // populate_bi_frame(0, CONFIG_MAX_NUM_NODES, ipcbuf_vptr, extra_bi_size);
 
     /* put DTB in the bootinfo block, if present. */
     seL4_BootInfoHeader header;
@@ -449,13 +514,6 @@ static BOOT_CODE bool_t try_init_kernel(
         ndks_boot.bi_frame->ioSpaceCaps = S_REG_EMPTY;
     }
 
-    /* Construct an initial address space with enough virtual addresses
-     * to cover the user image + ipc buffer and bootinfo frames */
-    it_pd_cap = create_it_address_space(root_cnode_cap, it_v_reg);
-    if (cap_get_capType(it_pd_cap) == cap_null_cap) {
-        printf("ERROR: address space creation for initial thread failed\n");
-        return false;
-    }
 
     /* Create and map bootinfo frame cap */
     create_bi_frame_cap(
@@ -470,7 +528,7 @@ static BOOT_CODE bool_t try_init_kernel(
             .start = rootserver.extra_bi,
             .end = rootserver.extra_bi + extra_bi_size
         };
-        extra_bi_ret =
+        create_frames_of_region_ret_t extra_bi_ret =
             create_frames_of_region(
                 root_cnode_cap,
                 it_pd_cap,
@@ -490,14 +548,14 @@ static BOOT_CODE bool_t try_init_kernel(
 #endif
 
     /* create the initial thread's IPC buffer */
-    ipcbuf_cap = create_ipcbuf_frame_cap(root_cnode_cap, it_pd_cap, ipcbuf_vptr);
+    cap_t ipcbuf_cap = create_ipcbuf_frame_cap(root_cnode_cap, it_pd_cap, ipcbuf_vptr);
     if (cap_get_capType(ipcbuf_cap) == cap_null_cap) {
         printf("ERROR: could not create IPC buffer for initial thread\n");
         return false;
     }
 
     /* create all userland image frames */
-    create_frames_ret =
+    create_frames_of_region_ret_t create_frames_ret =
         create_frames_of_region(
             root_cnode_cap,
             it_pd_cap,
@@ -512,7 +570,7 @@ static BOOT_CODE bool_t try_init_kernel(
     ndks_boot.bi_frame->userImageFrames = create_frames_ret.region;
 
     /* create/initialise the initial thread's ASID pool */
-    it_ap_cap = create_it_asid_pool(root_cnode_cap);
+    cap_t it_ap_cap = create_it_asid_pool(root_cnode_cap);
     if (cap_get_capType(it_ap_cap) == cap_null_cap) {
         printf("ERROR: could not create ASID pool for initial thread\n");
         return false;
@@ -523,8 +581,6 @@ static BOOT_CODE bool_t try_init_kernel(
     NODE_STATE(ksCurTime) = getCurrentTime();
 #endif
 
-    /* create the idle thread */
-    create_idle_thread();
 
     /* Before creating the initial thread (which also switches to it)
      * we clean the cache so that any page table information written
@@ -547,13 +603,17 @@ static BOOT_CODE bool_t try_init_kernel(
         return false;
     }
 
-    init_core_state(initial);
+#ifdef CONFIG_DEBUG_BUILD
+    /* add initial threads to the debug queue */
+    tcbDebugAppend(initial);
+#endif
+    NODE_STATE(ksSchedulerAction) = initial;
 
-    /* create all of the untypeds. Both devices and kernel window memory */
-    if (!create_untypeds(root_cnode_cap)) {
-        printf("ERROR: could not create untypteds for kernel image boot memory\n");
-        return false;
-    }
+    // /* create all of the untypeds. Both devices and kernel window memory */
+    // if (!create_untypeds(root_cnode_cap)) {
+    //     printf("ERROR: could not create untypteds for kernel image boot memory\n");
+    //     return false;
+    // }
 
     /* no shared-frame caps (ARM has no multikernel support) */
     ndks_boot.bi_frame->sharedFrames = S_REG_EMPTY;
