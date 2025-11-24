@@ -61,7 +61,7 @@ irq_t irqInvalid = (uint16_t) -1;
 /* Setters/getters helpers for hardware irqs */
 #define IRQ_REG(IRQ) ((IRQ) >> 5u)
 #define IRQ_BIT(IRQ) ((IRQ) & 0x1f)
-#define IS_IRQ_VALID(X) (((X) & IRQ_MASK) < SPECIAL_IRQ_START)
+#define IS_IRQ_VALID(X) (((X) & IRQ_MASK) != IRQ_NONE)
 
 /*
  * The only sane way to get an GIC IRQ number that can be properly
