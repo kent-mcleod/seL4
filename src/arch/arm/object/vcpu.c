@@ -424,7 +424,11 @@ exception_t decodeVCPUInjectIRQ(cap_t cap, word_t length, word_t *buffer)
 #endif
 
     /* Check IRQ parameters */
+#if defined(CONFIG_ARM_GIC_V3_SUPPORT) && defined(CONFIG_ARCH_AARCH64)
+    if (vid > (1U << 16) - 1) {
+#else
     if (vid > (1U << 10) - 1) {
+#endif
         current_syscall_error.type = seL4_RangeError;
         current_syscall_error.rangeErrorMin = 0;
         current_syscall_error.rangeErrorMax = (1U << 10) - 1;
