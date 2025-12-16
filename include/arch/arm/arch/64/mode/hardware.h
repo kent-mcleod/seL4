@@ -180,7 +180,11 @@
 
 /* Top of the physical memory window */
 #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+#ifdef CONFIG_ARM_KERNEL_WINDOW_1GIB_PAGES
+#define PPTR_TOP UL_CONST(0x0000ffffc0000000)
+#else
 #define PPTR_TOP UL_CONST(0x000000ffc0000000)
+#endif
 #else
 #define PPTR_TOP UL_CONST(0xffffffffc0000000)
 #endif
@@ -198,7 +202,11 @@
 /* This is a page table mapping at the end of the virtual address space
  * to map objects with 4KiB pages rather than 4MiB large pages. */
 #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+#ifdef CONFIG_ARM_KERNEL_WINDOW_1GIB_PAGES
+#define KERNEL_PT_BASE UL_CONST(0x0000ffffffe00000)
+#else
 #define KERNEL_PT_BASE UL_CONST(0x000000ffffe00000)
+#endif
 #else
 #define KERNEL_PT_BASE UL_CONST(0xffffffffffe00000)
 #endif

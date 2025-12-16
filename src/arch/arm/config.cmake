@@ -229,6 +229,17 @@ config_choice(
     "tpidruro;KernelArmTLSRegTPIDRURO;ARM_TLS_REG_TPIDRURO;KernelArchARM"
 )
 
+config_option(
+    KernelArmKernelWindow1GiBPages
+    ARM_KERNEL_WINDOW_1GIB_PAGES
+    "Use 1 GiB pages for mapping the bulk of the kernel window. On machines that \
+    have large gaps between low and high mappings of DRAM, a 2MiB mapped kernel window \
+    that covers 512GiB of address space may not be large enough. A 1GiB mapped kernel \
+    window can cover > 255TiB of address space (511 entries in the top level)."
+    DEFAULT OFF
+    DEPENDS "KernelSel4ArchAarch64;KernelArmHypervisorSupport"
+)
+
 if(KernelArmTLSRegTPIDRURO)
     set(KernelSetTLSBaseSelf ON)
 endif()
