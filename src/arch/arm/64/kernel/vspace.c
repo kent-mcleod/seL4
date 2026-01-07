@@ -233,6 +233,55 @@ BOOT_CODE void map_kernel_frame(paddr_t paddr, pptr_t vaddr, vm_rights_t vm_righ
                                                                                             attr_index);
 }
 
+#ifdef CONFIG_ARM_KERNEL_WINDOW_1GIB_PAGES
+
+BOOT_CODE void map_kernel_window(void)
+{
+
+    paddr_t paddr;
+    word_t idx;
+
+    /* verify that the kernel window as at the second entry of the PGD */
+    assert(GET_KPT_INDEX(PPTR_BASE, KLVL_FRM_ARM_PT_LVL(0)) == 1);
+    assert(IS_ALIGNED(PPTR_BASE, seL4_HugePageBits));
+    /* verify that the kernel device window is 1gb aligned and 1gb in size */
+    assert(GET_KPT_INDEX(PPTR_TOP, KLVL_FRM_ARM_PT_LVL(1)) == BIT(PT_INDEX_BITS) - 1);
+    assert(IS_ALIGNED(PPTR_TOP, seL4_HugePageBits));
+
+    // First we map 511 PUDs into the PGD:
+    for (idx = 1; idx < 512; idx++) {
+        armKSGlobalKernelPGD[idx] = pte_pte_table_new(addrFromKPPtr(armKSGlobalKernelPUDs[(idx-1)]));
+    }
+
+    // Next we create a lot of 1GiB PTE mappings but leave the last 1GiB entry empty.
+    for (idx = 0; idx < ((512*511) - 1); idx++) {
+        // Mapping in 1GiB increments:
+        paddr = PADDR_BASE + (idx * (1 << 30));
+
+        armKSGlobalKernelPUDs[idx / 512][idx % 512] = pte_pte_page_new(
+#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+                                                    0, // XN
+#else
+                                                    1, // UXN
+#endif
+                                                    paddr,
+                                                    0,                        /* global */
+                                                    1,                        /* access flag */
+                                                    SMP_TERNARY(SMP_SHARE, 0),        /* Inner-shareable if SMP enabled, otherwise unshared */
+                                                    0,                        /* VMKernelOnly */
+                                                    NORMAL
+                                                );
+    }
+
+    // Now need to map the kernel device mappings into the last entry
+    armKSGlobalKernelPUDs[511 - 1][511] = pte_pte_table_new(addrFromKPPtr(armKSGlobalKernelPD));
+    armKSGlobalKernelPD[511] = pte_pte_table_new(addrFromKPPtr(armKSGlobalKernelPT));
+
+    map_kernel_devices();
+}
+
+#else /* CONFIG_ARM_KERNEL_WINDOW_1GIB_PAGES */
+
 BOOT_CODE void map_kernel_window(void)
 {
 
@@ -296,6 +345,8 @@ BOOT_CODE void map_kernel_window(void)
 
     map_kernel_devices();
 }
+
+#endif
 
 /* When the hypervisor support is enabled, the stage-2 translation table format
  * is used for applications.

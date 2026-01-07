@@ -295,6 +295,10 @@ static inline bool_t isIRQPending(void)
 
 static inline void maskInterrupt(bool_t disable, irq_t irq)
 {
+    if (irq > 8192) {
+        // Cannot enable or disable LPI interrupts
+        return;
+    }
 #if defined ENABLE_SMP_SUPPORT
     assert(!(IRQ_IS_PPI(irq)) || (IRQT_TO_CORE(irq) == getCurrentCPUIndex()));
 #endif
@@ -307,6 +311,12 @@ static inline void maskInterrupt(bool_t disable, irq_t irq)
 }
 
 
+// From the spec: "PPIs, SGIs, and SPIs have an active state in the IRI and must be deactivated."
+// And: "A valid write to ICC_EOIR0_EL1 or ICC_EOIR1_EL1 to perform a priority drop is required for each
+// acknowledged interrupt, even for LPIs which do not have an active state."
+// We use Split EOIMode and perform a priority drop for all interrupts received in handleInterrupt.
+// deactivateInterrupt does not need to be called for LPIs.
+// This means userspace does not need to perform an ack invocation for LPI interrupts.
 static inline void deactivateInterrupt(irq_t irq)
 {
     word_t hw_irq = IRQT_TO_IRQ(irq);

@@ -12,6 +12,7 @@ endif()
 
 set(KernelArmPASizeBits40 OFF)
 set(KernelArmPASizeBits44 OFF)
+set(KernelArmPASizeBits48 OFF)
 if(KernelArmCortexA35)
     set(KernelArmICacheVIPT ON)
     set(KernelArmPASizeBits40 ON)
@@ -32,9 +33,17 @@ elseif(KernelArmCortexA72)
     # (https://developer.arm.com/documentation/100095/0001/memory-management-unit/about-the-mmu)
     set(KernelArmPASizeBits44 ON)
     math(EXPR KernelPaddrUserTop "(1 << 44)")
+elseif(KernelArmNeoverseN1)
+    # For Neoverse N1 in AArch64 state, the physical address range is 48 bits
+    set(KernelArmPASizeBits48 ON)
+    # The max physical address for kernel untypeds is still capped at 1 << 47
+    # because the kernel window isn't the full 48 bits.
+    math(EXPR KernelPaddrUserTop "(1 << 47)")
 endif()
+
 config_set(KernelArmPASizeBits40 ARM_PA_SIZE_BITS_40 "${KernelArmPASizeBits40}")
 config_set(KernelArmPASizeBits44 ARM_PA_SIZE_BITS_44 "${KernelArmPASizeBits44}")
+config_set(KernelArmPASizeBits48 ARM_PA_SIZE_BITS_48 "${KernelArmPASizeBits48}")
 config_set(KernelArmICacheVIPT ARM_ICACHE_VIPT "${KernelArmICacheVIPT}")
 
 if(KernelSel4ArchAarch32)
@@ -86,7 +95,7 @@ config_option(
     "Build as Hypervisor. Utilise ARM virtualisation extensions to build the kernel as a hypervisor"
     DEFAULT ${KernelSel4ArchArmHyp}
     DEPENDS
-        "KernelArmCortexA15 OR KernelArmCortexA35 OR KernelArmCortexA57 OR KernelArmCortexA53 OR KernelArmCortexA55 OR KernelArmCortexA72"
+        "KernelArmCortexA15 OR KernelArmCortexA35 OR KernelArmCortexA57 OR KernelArmCortexA53 OR KernelArmCortexA55 OR KernelArmCortexA72 OR KernelArmNeoverseN1"
 )
 
 config_option(KernelArmGicV3 ARM_GIC_V3_SUPPORT "Build support for GICv3" DEFAULT OFF)
@@ -229,6 +238,17 @@ config_choice(
     "tpidruro;KernelArmTLSRegTPIDRURO;ARM_TLS_REG_TPIDRURO;KernelArchARM"
 )
 
+config_option(
+    KernelArmKernelWindow1GiBPages
+    ARM_KERNEL_WINDOW_1GIB_PAGES
+    "Use 1 GiB pages for mapping the bulk of the kernel window. On machines that \
+    have large gaps between low and high mappings of DRAM, a 2MiB mapped kernel window \
+    that covers 512GiB of address space may not be large enough. A 1GiB mapped kernel \
+    window can cover > 255TiB of address space (511 entries in the top level)."
+    DEFAULT OFF
+    DEPENDS "KernelSel4ArchAarch64;KernelArmHypervisorSupport"
+)
+
 if(KernelArmTLSRegTPIDRURO)
     set(KernelSetTLSBaseSelf ON)
 endif()
@@ -246,6 +266,7 @@ if(
     OR KernelArmCortexA55
     OR KernelArmCortexA57
     OR KernelArmCortexA72
+    OR KernelArmNeoverseN1
 )
     # According to https://developer.arm.com/documentation/100095/0001/functional-description/about-the-cortex-a72-processor-functions/components-of-the-processor
     # the L1 instruction on the Cortex-A72 cache has a 64-byte cache line.
