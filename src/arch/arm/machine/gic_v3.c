@@ -304,7 +304,6 @@ BOOT_CODE static void cpu_iface_init(void)
 
 void setIRQTrigger(irq_t irq, bool_t trigger)
 {
-
     /* GICv3 has read-only GICR_ICFG0 for SGI with
      * default value 0xaaaaaaaa, and read-write GICR_ICFG1
      * for PPI with default 0x00000000.*/
@@ -315,6 +314,23 @@ void setIRQTrigger(irq_t irq, bool_t trigger)
     }
     int word = hw_irq >> 4;
     int bit = ((hw_irq & 0xf) * 2);
+
+    /* Per ARM GIC spec, the interrupt must be disabled before changing
+     * its configuration, otherwise GIC behavior is UNPREDICTABLE. */
+    int en_word = IRQ_REG(hw_irq);
+    int en_bit = IRQ_BIT(hw_irq);
+    bool_t was_enabled;
+
+    if (HW_IRQ_IS_PPI(hw_irq)) {
+        was_enabled = !!(gic_rdist_sgi_ppi_map[core]->isenabler0 & BIT(en_bit));
+    } else {
+        was_enabled = !!(gic_dist->isenablern[en_word] & BIT(en_bit));
+    }
+
+    if (was_enabled) {
+        gic_enable_clr(hw_irq);
+    }
+
     uint32_t icfgr = 0;
     if (HW_IRQ_IS_PPI(hw_irq)) {
         icfgr = gic_rdist_sgi_ppi_map[core]->icfgr1;
@@ -331,13 +347,12 @@ void setIRQTrigger(irq_t irq, bool_t trigger)
     if (HW_IRQ_IS_PPI(hw_irq)) {
         gic_rdist_sgi_ppi_map[core]->icfgr1 = icfgr;
     } else {
-        /* Update GICD_ICFGR<n>. Note that the interrupt should
-         * be disabled before changing the field, and this function
-         * assumes the caller has disabled the interrupt. */
         gic_dist->icfgrn[word] = icfgr;
     }
 
-    return;
+    if (was_enabled) {
+        gic_enable_set(hw_irq);
+    }
 }
 
 BOOT_CODE void initIRQController(void)

@@ -152,13 +152,28 @@ void setIRQTrigger(irq_t irq, bool_t trigger)
     /* in the gic_config, there is a 2 bit field for each irq,
      * setting the most significant bit of this field makes the irq edge-triggered,
      * while 0 indicates that it is level-triggered */
-    word_t index = IRQT_TO_IRQ(irq) / 16u;
-    word_t offset = (IRQT_TO_IRQ(irq) % 16u) * 2;
+    word_t hw_irq = IRQT_TO_IRQ(irq);
+    word_t index = hw_irq / 16u;
+    word_t offset = (hw_irq % 16u) * 2;
+
+    /* Per ARM GIC spec, the interrupt must be disabled before changing
+     * its configuration, otherwise GIC behavior is UNPREDICTABLE. */
+    int word = IRQ_REG(hw_irq);
+    int bit = IRQ_BIT(hw_irq);
+    bool_t was_enabled = !!(gic_dist->enable_set[word] & BIT(bit));
+
+    if (was_enabled) {
+        dist_enable_clr(hw_irq);
+    }
+
     if (trigger) {
-        /* set the bit */
         gic_dist->config[index] |= BIT(offset + 1);
     } else {
         gic_dist->config[index] &= ~BIT(offset + 1);
+    }
+
+    if (was_enabled) {
+        dist_enable_set(hw_irq);
     }
 }
 
